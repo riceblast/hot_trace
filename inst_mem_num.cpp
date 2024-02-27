@@ -14,17 +14,11 @@
 
 using namespace std;
 
-//FILE* trace;
-string out_dir = "./trace";
-//std::ostream* out_raw = &cerr;
-//std::ostream* out_info = &cerr;
-std::ofstream* out_raw_file;
-std::ofstream* log_file;
-string rawName;
 string appName;
 string logName;
+string out_dir = "./trace";
+std::ofstream* log_file;
 
-bool only_profile_num = false;
 UINT64 traceStartPos;
 UINT64 period;
 UINT64 memPeriod;
@@ -35,18 +29,21 @@ UINT64 writeNum;
 UINT64 memNum;
 UINT64 instNum;
 
+bool mem = 1;
+bool inst = 1;
+
 /* ===================================================================== */
 // Command line switches
 /* ===================================================================== */
-// KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "specify file name for output");
-// KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
-// KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0xffffff", "specify period memory access num");
-// KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "0xfffffffffffffff", "max memory access num");
-// KNOB< BOOL > knobProfileMemNum(KNOB_MODE_WRITEONCE, "pintool", "mem_num", "", "only count the total memroy access number");
+KNOB< BOOL > KnobMem(KNOB_MODE_WRITEONCE, "pintool", "mem", "", "only counter mem");
+KNOB< BOOL > KnobInst(KNOB_MODE_WRITEONCE, "pintool", "inst", "", "only counter inst");
 
 // This function is called before every instruction is executed
 // and prints the IP
-VOID cnt_ip(VOID* ip) { instNum++; }
+VOID cnt_ip(VOID* ip) 
+{ 
+    instNum++; 
+}
 
 VOID cnt_read(VOID* addr)
 {
@@ -61,20 +58,24 @@ VOID cnt_write(VOID* addr)
 // Pin calls this function every time a new instruction is encountered
 VOID Instruction(INS ins, VOID* v)
 {
-    // Insert a call to printip before every instruction, and pass it the IP
-    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_ip, IARG_INST_PTR, IARG_END);
+    if (inst) {
+        // Insert a call to printip before every instruction, and pass it the IP
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_ip, IARG_INST_PTR, IARG_END);
+    }
 
-    // instrument memory reads and writes
-    UINT32 memOperands = INS_MemoryOperandCount(ins);
+    if (mem) {
+        // instrument memory reads and writes
+        UINT32 memOperands = INS_MemoryOperandCount(ins);
 
-    // Iterate over each memory operand of the instruction.
-    for (UINT32 memOp = 0; memOp < memOperands; memOp++) {
-        if (INS_MemoryOperandIsRead(ins, memOp))
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_read, 
-                IARG_MEMORYOP_EA, memOp, IARG_END);
-        if (INS_MemoryOperandIsWritten(ins, memOp))
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_write, 
-                IARG_MEMORYOP_EA, memOp, IARG_END);
+        // Iterate over each memory operand of the instruction.
+        for (UINT32 memOp = 0; memOp < memOperands; memOp++) {
+            if (INS_MemoryOperandIsRead(ins, memOp))
+                INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_read, 
+                    IARG_MEMORYOP_EA, memOp, IARG_END);
+            if (INS_MemoryOperandIsWritten(ins, memOp))
+                INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_write, 
+                    IARG_MEMORYOP_EA, memOp, IARG_END);
+        }
     }
 }
 
@@ -84,10 +85,14 @@ VOID Fini(INT32 code, VOID* v)
     memNum = readNum + writeNum;
     *log_file << "app name: " << appName << endl;
     *log_file << "start inst position: " << "0x" << hex << traceStartPos << endl;
-    *log_file << "total read num: " << "0x" << hex << readNum << endl;
-    *log_file << "total write num: " << "0x" << hex << writeNum << endl;
-    *log_file << "total memory access num: " << "0x" << hex << memNum << endl;
-    *log_file << "total instruction num: " << "0x" << hex << instNum << endl;
+    if (mem) {
+        *log_file << "total read num: " << "0x" << hex << readNum << endl;
+        *log_file << "total write num: " << "0x" << hex << writeNum << endl;
+        *log_file << "total memory access num: " << "0x" << hex << memNum << endl;
+    }
+    if (inst) {
+        *log_file << "total instruction num: " << "0x" << hex << instNum << endl;
+    }
     log_file->close();
 }
 
@@ -113,6 +118,15 @@ void custom_init(int argc, char* argv[])
         cerr << "mkdir " << out_dir << endl;
     }
 
+    if (KnobInst.Value() == 1 && KnobMem.Value() == 0) {
+        inst = 1;
+        mem = 0;
+    }
+    if (KnobInst.Value() == 0 && KnobMem.Value() == 1) {
+        inst = 0;
+        mem = 1;
+    }
+
     readNum = 0;
     writeNum = 0;
     memNum = 0;
@@ -123,7 +137,12 @@ void custom_init(int argc, char* argv[])
     std::time_t currentTime = std::chrono::system_clock::to_time_t(currentTimePoint);
     std::stringstream time_str;
     time_str << std::put_time(std::localtime(&currentTime), "%Y%m%d_%H:%M");
-    logName = out_dir + "/" + appName + "/" + "inst_mem_" + time_str.str();
+    if (inst && !mem)
+        logName = out_dir + "/" + appName + "/" + "inst_" + time_str.str();
+    else if (!inst && mem)
+        logName = out_dir + "/" + appName + "/" + "mem_" + time_str.str();
+    else
+        logName = out_dir + "/" + appName + "/" + "inst_mem_" + time_str.str();
     log_file = new ofstream(logName, ios::out | ios::binary);
 }
 
