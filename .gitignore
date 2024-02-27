@@ -7,3 +7,4 @@ trace/*
 pin.log
 mmap_test*
 mkdir_test*
+loop*

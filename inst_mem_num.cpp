@@ -30,61 +30,39 @@ UINT64 period;
 UINT64 memPeriod;
 UINT64 memDumpNum;
 UINT64 maxMemSetting;
+UINT64 readNum;
+UINT64 writeNum;
 UINT64 memNum;
-UINT64 instCount;
+UINT64 instNum;
 
 /* ===================================================================== */
 // Command line switches
 /* ===================================================================== */
-KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "specify file name for output");
-KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
-KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0xffffff", "specify period memory access num");
-KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "0xfffffffffffffff", "max memory access num");
-KNOB< BOOL > knobProfileMemNum(KNOB_MODE_WRITEONCE, "pintool", "mem_num", "", "only count the total memroy access number");
+// KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "specify file name for output");
+// KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
+// KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0xffffff", "specify period memory access num");
+// KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "0xfffffffffffffff", "max memory access num");
+// KNOB< BOOL > knobProfileMemNum(KNOB_MODE_WRITEONCE, "pintool", "mem_num", "", "only count the total memroy access number");
 
 // This function is called before every instruction is executed
 // and prints the IP
-//VOID printip(VOID* ip) { fprintf(trace, "%p\n", ip); }
+VOID cnt_ip(VOID* ip) { instNum++; }
 
-VOID dump_read(VOID* addr)
+VOID cnt_read(VOID* addr)
 {
-    if (memDumpNum >= memPeriod * period && !only_profile_num) {
-        out_raw_file->close();
-
-        rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
-            + "_" + std::to_string(period++) + ".raw.trace";
-        out_raw_file->open(rawName, ios::out | ios::binary);
-    }
-
-    if (memDumpNum < maxMemSetting && !only_profile_num) {
-        *out_raw_file << "r " << addr << "\n";
-        memDumpNum++;
-    }
-    memNum++;
+    readNum++;
 }
 
-VOID dump_write(VOID* addr)
+VOID cnt_write(VOID* addr)
 {
-    if (memDumpNum >= memPeriod * period && !only_profile_num) {
-        out_raw_file->close();
-
-        rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
-            + "_" + std::to_string(period++) + ".raw.trace";
-        out_raw_file->open(rawName, ios::out | ios::binary);
-    }
-
-    if (memDumpNum < maxMemSetting && !only_profile_num) {
-        *out_raw_file << "w " << addr << "\n";
-        memDumpNum++;
-    }   
-    memNum++;
+    writeNum++;
 }
 
 // Pin calls this function every time a new instruction is encountered
 VOID Instruction(INS ins, VOID* v)
 {
     // Insert a call to printip before every instruction, and pass it the IP
-    //INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)printip, IARG_INST_PTR, IARG_END);
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_ip, IARG_INST_PTR, IARG_END);
 
     // instrument memory reads and writes
     UINT32 memOperands = INS_MemoryOperandCount(ins);
@@ -92,10 +70,10 @@ VOID Instruction(INS ins, VOID* v)
     // Iterate over each memory operand of the instruction.
     for (UINT32 memOp = 0; memOp < memOperands; memOp++) {
         if (INS_MemoryOperandIsRead(ins, memOp))
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)dump_read, 
+            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_read, 
                 IARG_MEMORYOP_EA, memOp, IARG_END);
         if (INS_MemoryOperandIsWritten(ins, memOp))
-            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)dump_write, 
+            INS_InsertPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_write, 
                 IARG_MEMORYOP_EA, memOp, IARG_END);
     }
 }
@@ -103,15 +81,13 @@ VOID Instruction(INS ins, VOID* v)
 // This function is called when the application exits
 VOID Fini(INT32 code, VOID* v)
 {
-    out_raw_file->close();
+    memNum = readNum + writeNum;
     *log_file << "app name: " << appName << endl;
     *log_file << "start inst position: " << "0x" << hex << traceStartPos << endl;
-    *log_file << "period num: " << dec << period << endl;
-    *log_file << "period settings: " << "0x" << hex << memPeriod << endl;
-    *log_file << "dumped address num: " << "0x" << hex << memDumpNum << endl;
+    *log_file << "total read num: " << "0x" << hex << readNum << endl;
+    *log_file << "total write num: " << "0x" << hex << writeNum << endl;
     *log_file << "total memory access num: " << "0x" << hex << memNum << endl;
-    *log_file << "max mem setting: " << "0x" << hex << maxMemSetting << endl;
-    //*log_file << "total inst cnt: " << instCount << endl;
+    *log_file << "total instruction num: " << "0x" << hex << instNum << endl;
     log_file->close();
 }
 
@@ -134,29 +110,20 @@ void custom_init(int argc, char* argv[])
     int status = mkdir((out_dir + "/" + appName).c_str(),
         S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     if (!status) {
-        cerr << "mkdir " << out_dir + "/" + appName << endl;
+        cerr << "mkdir " << out_dir << endl;
     }
 
-    period = 0;
-    memDumpNum = 0;
+    readNum = 0;
+    writeNum = 0;
     memNum = 0;
-    only_profile_num = knobProfileMemNum.Value();
-    //cerr << "option: " << only_profile_num << endl;
-    maxMemSetting = KnobMaxMem.Value();
-    traceStartPos = KnobStartPos.Value();
-    memPeriod = KnobMemPeriod.Value();
-
-    rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
-        + "_" + std::to_string(period++) + ".raw.trace";
-    out_raw_file = new ofstream(rawName, ios::out | ios::binary);
-    
+    instNum = 0;
 
     // get cur time and generate log
     auto currentTimePoint = std::chrono::system_clock::now();
     std::time_t currentTime = std::chrono::system_clock::to_time_t(currentTimePoint);
     std::stringstream time_str;
     time_str << std::put_time(std::localtime(&currentTime), "%Y%m%d_%H:%M");
-    logName = out_dir + "/" + appName + "/" + "log_" + time_str.str();
+    logName = out_dir + "/" + appName + "/" + "inst_mem_" + time_str.str();
     log_file = new ofstream(logName, ios::out | ios::binary);
 }
 
@@ -182,7 +149,7 @@ int main(int argc, char* argv[])
     PIN_AddFiniFunction(Fini, 0);
 
     cerr << "=======================================================" << endl;
-    cerr << "This application: '" << appName << "' is instrumented by vpn_dump PINTOOL" << endl;
+    cerr << "This application: '" << appName << "' is instrumented by inst_mem_num PINTOOL" << endl;
     cerr << "=======================================================" << endl;
 
     // Start the program, never returns
