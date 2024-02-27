@@ -1,0 +1,6 @@
+.vscode/*
+icount.cpp
+mem_trace.cpp
+mkdir_test.cpp
+obj-intel64/*
+trace/*
