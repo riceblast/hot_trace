@@ -14,17 +14,13 @@
 
 using namespace std;
 
-//FILE* trace;
 string out_dir = "./trace";
-//std::ostream* out_raw = &cerr;
-//std::ostream* out_info = &cerr;
 std::ofstream* out_raw_file;
 std::ofstream* log_file;
 string rawName;
 string appName;
 string logName;
 
-bool only_profile_num = false;
 UINT64 traceStartPos;
 UINT64 period;
 UINT64 memPeriod;
@@ -40,15 +36,10 @@ KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "spec
 KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
 KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0xffffff", "specify period memory access num");
 KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "0xfffffffffffffff", "max memory access num");
-KNOB< BOOL > knobProfileMemNum(KNOB_MODE_WRITEONCE, "pintool", "mem_num", "", "only count the total memroy access number");
-
-// This function is called before every instruction is executed
-// and prints the IP
-//VOID printip(VOID* ip) { fprintf(trace, "%p\n", ip); }
 
 VOID dump_read(VOID* addr)
 {
-    if (memDumpNum >= memPeriod * period && !only_profile_num) {
+    if (memDumpNum >= memPeriod * period) {
         out_raw_file->close();
 
         rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
@@ -56,7 +47,7 @@ VOID dump_read(VOID* addr)
         out_raw_file->open(rawName, ios::out | ios::binary);
     }
 
-    if (memDumpNum < maxMemSetting && !only_profile_num) {
+    if (memDumpNum < maxMemSetting) {
         *out_raw_file << "r " << addr << "\n";
         memDumpNum++;
     }
@@ -65,7 +56,7 @@ VOID dump_read(VOID* addr)
 
 VOID dump_write(VOID* addr)
 {
-    if (memDumpNum >= memPeriod * period && !only_profile_num) {
+    if (memDumpNum >= memPeriod * period) {
         out_raw_file->close();
 
         rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
@@ -73,7 +64,7 @@ VOID dump_write(VOID* addr)
         out_raw_file->open(rawName, ios::out | ios::binary);
     }
 
-    if (memDumpNum < maxMemSetting && !only_profile_num) {
+    if (memDumpNum < maxMemSetting) {
         *out_raw_file << "w " << addr << "\n";
         memDumpNum++;
     }   
@@ -140,8 +131,6 @@ void custom_init(int argc, char* argv[])
     period = 0;
     memDumpNum = 0;
     memNum = 0;
-    only_profile_num = knobProfileMemNum.Value();
-    //cerr << "option: " << only_profile_num << endl;
     maxMemSetting = KnobMaxMem.Value();
     traceStartPos = KnobStartPos.Value();
     memPeriod = KnobMemPeriod.Value();
