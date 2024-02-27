@@ -38,8 +38,8 @@ UINT64 instCount;
 /* ===================================================================== */
 KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "specify file name for output");
 KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
-KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "100000", "specify period memory access num");
-KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "100000000", "max memory access num");
+KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0xffffff", "specify period memory access num");
+KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "0xfffffffffffffff", "max memory access num");
 KNOB< BOOL > knobProfileMemNum(KNOB_MODE_WRITEONCE, "pintool", "mem_num", "", "only count the total memroy access number");
 
 // This function is called before every instruction is executed
@@ -48,6 +48,14 @@ KNOB< BOOL > knobProfileMemNum(KNOB_MODE_WRITEONCE, "pintool", "mem_num", "", "o
 
 VOID dump_read(VOID* addr)
 {
+    if (memDumpNum >= memPeriod * period && !only_profile_num) {
+        out_raw_file->close();
+
+        rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
+            + "_" + std::to_string(period++) + ".raw.trace";
+        out_raw_file->open(rawName, ios::out | ios::binary);
+    }
+
     if (memDumpNum < maxMemSetting && !only_profile_num) {
         *out_raw_file << "r " << addr << "\n";
         memDumpNum++;
@@ -57,6 +65,14 @@ VOID dump_read(VOID* addr)
 
 VOID dump_write(VOID* addr)
 {
+    if (memDumpNum >= memPeriod * period && !only_profile_num) {
+        out_raw_file->close();
+
+        rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
+            + "_" + std::to_string(period++) + ".raw.trace";
+        out_raw_file->open(rawName, ios::out | ios::binary);
+    }
+
     if (memDumpNum < maxMemSetting && !only_profile_num) {
         *out_raw_file << "w " << addr << "\n";
         memDumpNum++;
@@ -67,14 +83,6 @@ VOID dump_write(VOID* addr)
 // Pin calls this function every time a new instruction is encountered
 VOID Instruction(INS ins, VOID* v)
 {
-    if (memDumpNum >= memPeriod * period && !only_profile_num) {
-        out_raw_file->close();
-
-        rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
-            + "_" + std::to_string(period++) + ".raw.trace";
-        out_raw_file->open(rawName, ios::out | ios::binary);
-    }
-
     // Insert a call to printip before every instruction, and pass it the IP
     //INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)printip, IARG_INST_PTR, IARG_END);
 
@@ -97,12 +105,12 @@ VOID Fini(INT32 code, VOID* v)
 {
     out_raw_file->close();
     *log_file << "app name: " << appName << endl;
-    *log_file << "start inst position: " << traceStartPos << endl;
-    *log_file << "period settings: " << memPeriod << endl;
-    *log_file << "period num: " << period << endl;
-    *log_file << "max mem setting: " << maxMemSetting << endl;
-    *log_file << "dumped address num: " << memDumpNum << endl;
-    *log_file << "total memory access num: " << memNum << endl;
+    *log_file << "start inst position: " << "0x" << hex << traceStartPos << endl;
+    *log_file << "period num: " << dec << period << endl;
+    *log_file << "period settings: " << "0x" << hex << memPeriod << endl;
+    *log_file << "dumped address num: " << "0x" << hex << memDumpNum << endl;
+    *log_file << "total memory access num: " << "0x" << hex << memNum << endl;
+    *log_file << "max mem setting: " << "0x" << hex << maxMemSetting << endl;
     //*log_file << "total inst cnt: " << instCount << endl;
     log_file->close();
 }
@@ -133,7 +141,7 @@ void custom_init(int argc, char* argv[])
     memDumpNum = 0;
     memNum = 0;
     only_profile_num = knobProfileMemNum.Value();
-    cerr << "option: " << only_profile_num << endl;
+    //cerr << "option: " << only_profile_num << endl;
     maxMemSetting = KnobMaxMem.Value();
     traceStartPos = KnobStartPos.Value();
     memPeriod = KnobMemPeriod.Value();

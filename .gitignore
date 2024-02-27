@@ -5,3 +5,5 @@ mkdir_test.cpp
 obj-intel64/*
 trace/*
 pin.log
+mmap_test*
+mkdir_test*
