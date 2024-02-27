@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <chrono>
 #include <iomanip>
+#include <vector>
 #include "pin.H"
 
 using namespace std;
@@ -29,26 +30,64 @@ UINT64 maxMemSetting;
 UINT64 memNum;
 UINT64 instCount;
 
+typedef struct {
+    char type;  // 0:read, 1:write
+    void* addr;
+} addr_entry;
+const size_t BUFFER_THRESHOLD = 10 * 1024 * 1024; // the overflow entry num
+vector<addr_entry> buffer;
+
 /* ===================================================================== */
 // Command line switches
 /* ===================================================================== */
 KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "specify file name for output");
 KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
-KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0xffffff", "specify period memory access num");
+//KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0x1fffffe", "specify period memory access num");
+KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0xffffe", "specify period memory access num");
 KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "0xfffffffffffffff", "max memory access num");
 
-VOID dump_read(VOID* addr)
+void cnt_ip(void)
+{
+    instCount++;
+}
+
+// flush all entry 
+void flush_once(void)
+{
+    for (const auto& entry : buffer) {
+        const char* op = (entry.type == 0) ? "r" : "w";
+        *out_raw_file << op << " " << entry.addr << "\n";
+    }
+    buffer.clear();
+    out_raw_file->flush();
+}
+
+// if buffer size is greater than theshold than flush
+void flush_buffer_to_file(void) 
+{
+    if (buffer.size() >= BUFFER_THRESHOLD)
+        flush_once();
+}
+
+void prepareNextFile(void) 
 {
     if (memDumpNum >= memPeriod * period) {
+        flush_once();
         out_raw_file->close();
 
         rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
             + "_" + std::to_string(period++) + ".raw.trace";
         out_raw_file->open(rawName, ios::out | ios::binary);
     }
+}
+
+VOID dump_read(VOID* addr)
+{
+    prepareNextFile();
+    flush_buffer_to_file();
 
     if (memDumpNum < maxMemSetting) {
-        *out_raw_file << "r " << addr << "\n";
+        buffer.push_back({0, addr});
         memDumpNum++;
     }
     memNum++;
@@ -56,16 +95,11 @@ VOID dump_read(VOID* addr)
 
 VOID dump_write(VOID* addr)
 {
-    if (memDumpNum >= memPeriod * period) {
-        out_raw_file->close();
-
-        rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
-            + "_" + std::to_string(period++) + ".raw.trace";
-        out_raw_file->open(rawName, ios::out | ios::binary);
-    }
+    prepareNextFile();
+    flush_buffer_to_file();
 
     if (memDumpNum < maxMemSetting) {
-        *out_raw_file << "w " << addr << "\n";
+        buffer.push_back({1, addr});
         memDumpNum++;
     }   
     memNum++;
@@ -75,7 +109,7 @@ VOID dump_write(VOID* addr)
 VOID Instruction(INS ins, VOID* v)
 {
     // Insert a call to printip before every instruction, and pass it the IP
-    //INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)printip, IARG_INST_PTR, IARG_END);
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)cnt_ip, IARG_INST_PTR, IARG_END);
 
     // instrument memory reads and writes
     UINT32 memOperands = INS_MemoryOperandCount(ins);
@@ -94,7 +128,9 @@ VOID Instruction(INS ins, VOID* v)
 // This function is called when the application exits
 VOID Fini(INT32 code, VOID* v)
 {
+    flush_once();
     out_raw_file->close();
+
     *log_file << "app name: " << appName << endl;
     *log_file << "start inst position: " << "0x" << hex << traceStartPos << endl;
     *log_file << "period num: " << dec << period << endl;
@@ -102,7 +138,7 @@ VOID Fini(INT32 code, VOID* v)
     *log_file << "dumped address num: " << "0x" << hex << memDumpNum << endl;
     *log_file << "total memory access num: " << "0x" << hex << memNum << endl;
     *log_file << "max mem setting: " << "0x" << hex << maxMemSetting << endl;
-    //*log_file << "total inst cnt: " << instCount << endl;
+    *log_file << "total executed inst: " << "0x" << hex << instCount << endl;
     log_file->close();
 }
 
