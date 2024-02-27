@@ -24,12 +24,13 @@ string rawName;
 string appName;
 string logName;
 
+bool only_profile_num = false;
 UINT64 traceStartPos;
 UINT64 period;
 UINT64 memPeriod;
-UINT64 memCount;
-UINT64 maxMem;
-UINT64 shadowMem;
+UINT64 memDumpNum;
+UINT64 maxMemSetting;
+UINT64 memNum;
 UINT64 instCount;
 
 /* ===================================================================== */
@@ -39,7 +40,7 @@ KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "spec
 KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
 KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "100000", "specify period memory access num");
 KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "100000000", "max memory access num");
-
+KNOB< BOOL > knobProfileMemNum(KNOB_MODE_WRITEONCE, "pintool", "mem_num", "", "only count the total memroy access number");
 
 // This function is called before every instruction is executed
 // and prints the IP
@@ -47,24 +48,26 @@ KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "100000000", "max
 
 VOID dump_read(VOID* addr)
 {
-    if (memCount < maxMem) {
+    if (memDumpNum < maxMemSetting && !only_profile_num) {
         *out_raw_file << "r " << addr << "\n";
+        memDumpNum++;
     }
-    memCount++;
+    memNum++;
 }
 
 VOID dump_write(VOID* addr)
 {
-    if (memCount < maxMem) {
+    if (memDumpNum < maxMemSetting && !only_profile_num) {
         *out_raw_file << "w " << addr << "\n";
+        memDumpNum++;
     }   
-    memCount++;
+    memNum++;
 }
 
 // Pin calls this function every time a new instruction is encountered
 VOID Instruction(INS ins, VOID* v)
 {
-    if (memCount >= memPeriod * period) {
+    if (memDumpNum >= memPeriod * period && !only_profile_num) {
         out_raw_file->close();
 
         rawName = out_dir + "/" + appName + "/" + KnobOutputFile.Value() 
@@ -94,11 +97,12 @@ VOID Fini(INT32 code, VOID* v)
 {
     out_raw_file->close();
     *log_file << "app name: " << appName << endl;
-    *log_file << "start inst cnt: " << traceStartPos << endl;
+    *log_file << "start inst position: " << traceStartPos << endl;
     *log_file << "period settings: " << memPeriod << endl;
-    *log_file << "period cnt: " << period << endl;
-    *log_file << "max mem setting: " << maxMem << endl;
-    *log_file << "total mem cnt: " << memCount << endl;
+    *log_file << "period num: " << period << endl;
+    *log_file << "max mem setting: " << maxMemSetting << endl;
+    *log_file << "dumped address num: " << memDumpNum << endl;
+    *log_file << "total memory access num: " << memNum << endl;
     //*log_file << "total inst cnt: " << instCount << endl;
     log_file->close();
 }
@@ -126,9 +130,11 @@ void custom_init(int argc, char* argv[])
     }
 
     period = 0;
-    memCount = 0;
-    shadowMem = 0;
-    maxMem = KnobMaxMem.Value();
+    memDumpNum = 0;
+    memNum = 0;
+    only_profile_num = knobProfileMemNum.Value();
+    cerr << "option: " << only_profile_num << endl;
+    maxMemSetting = KnobMaxMem.Value();
     traceStartPos = KnobStartPos.Value();
     memPeriod = KnobMemPeriod.Value();
 
