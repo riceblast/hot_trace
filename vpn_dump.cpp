@@ -41,7 +41,7 @@ vector<addr_entry> buffer;
 // Command line switches
 /* ===================================================================== */
 KNOB< string > KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "test", "specify file name for output");
-KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point");
+KNOB< UINT64 > KnobStartPos(KNOB_MODE_WRITEONCE, "pintool", "s", "0", "specify start point of memory");
 KNOB< UINT64 > KnobMemPeriod(KNOB_MODE_WRITEONCE, "pintool", "p", "0x1fffffe", "specify period memory access num"); // 8M-period, ~10ms
 KNOB< UINT64 > KnobMaxMem(KNOB_MODE_WRITEONCE, "pintool", "n", "0xfffffffffffffff", "max memory access num");
 
@@ -85,7 +85,7 @@ VOID dump_read(VOID* addr)
     prepareNextFile();
     flush_buffer_to_file();
 
-    if (memDumpNum < maxMemSetting) {
+    if (memNum >= traceStartPos && memDumpNum < maxMemSetting) {
         buffer.push_back({0, addr});
         memDumpNum++;
     }
@@ -97,7 +97,7 @@ VOID dump_write(VOID* addr)
     prepareNextFile();
     flush_buffer_to_file();
 
-    if (memDumpNum < maxMemSetting) {
+    if (memNum >= traceStartPos && memDumpNum < maxMemSetting) {
         buffer.push_back({1, addr});
         memDumpNum++;
     }   
