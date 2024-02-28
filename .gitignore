@@ -8,3 +8,9 @@ pin.log
 mmap_test*
 mkdir_test*
 loop*
+605*
+BFS
+gups_*
+mcf*
+r_Mat*
+run_BFS*

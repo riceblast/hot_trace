@@ -86,11 +86,13 @@ VOID Fini(INT32 code, VOID* v)
     *log_file << "app name: " << appName << endl;
     *log_file << "start inst position: " << "0x" << hex << traceStartPos << endl;
     if (mem) {
+        *log_file << "--------------" << endl;
         *log_file << "total read num: " << "0x" << hex << readNum << endl;
         *log_file << "total write num: " << "0x" << hex << writeNum << endl;
         *log_file << "total memory access num: " << "0x" << hex << memNum << endl;
     }
     if (inst) {
+        *log_file << "--------------" << endl;
         *log_file << "total instruction num: " << "0x" << hex << instNum << endl;
     }
     log_file->close();
@@ -115,7 +117,7 @@ void custom_init(int argc, char* argv[])
     int status = mkdir((out_dir + "/" + appName).c_str(),
         S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     if (!status) {
-        cerr << "mkdir " << out_dir << endl;
+        cerr << "mkdir " << out_dir + "/" + appName << endl;
     }
 
     if (KnobInst.Value() == 1 && KnobMem.Value() == 0) {
@@ -126,6 +128,7 @@ void custom_init(int argc, char* argv[])
         inst = 0;
         mem = 1;
     }
+    cerr << "inst: " << inst << ", mem: " << mem << endl;
 
     readNum = 0;
     writeNum = 0;
