@@ -3,12 +3,25 @@
 #include <unordered_map>
 #include <list>
 #include <string>
+#include <string.h>
 #include <cassert>
+#include <vector>
 
+// cache per core: 2.5MB
+// simulation: 2048 sets, 20ways
+#define SETS 2048 // Number of cache sets
+#define WAYS 20   // Number of ways per set
 #define CACHE_LINE_SIZE 64 // Size of a cache line in bytes
 #define PAGE_SIZE 4096 // Size of a virtual page in bytes
 //#define LRU_CACHE_SIZE 66048 // Number of cache lines to track
 #define LRU_CACHE_SIZE 45000 // Number of cache lines to track
+
+// Use std::pair to store cache set number and its iterator within a list
+using CacheLineInfo = std::pair<unsigned long long, std::list<unsigned long long>::iterator>;
+
+// Cache structure
+std::vector<std::list<unsigned long long>> cacheSets(SETS);
+std::unordered_map<unsigned long long, CacheLineInfo> cacheMap; // cacheline_num -> (set_index, iterator)
 
 // Converts a hexadecimal address string to a virtual page number
 unsigned long long addressToPageNumber(const std::string& address) {
@@ -22,33 +35,66 @@ unsigned long long addressToCacheLine(const std::string& address) {
     return addr / CACHE_LINE_SIZE;
 }
 
+// Function to map an address to a specific set index
+unsigned long long addressToSetIndex(const std::string& address) {
+    unsigned long long cacheLine = addressToCacheLine(address);
+    return cacheLine % SETS;
+}
+
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <input_file_name>\n";
+    std::string outDir;
+    std::string inputFileName;
+
+    // check the num of params, at least for 4 params
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " -o <outdir> <input_file_name>\n";
         return 1;
     }
 
-    std::ifstream inputFile(argv[1]);
-    if (!inputFile.is_open()) {
-        std::cerr << "Error opening file: " << argv[1] << std::endl;
+    // analyse the comand parameters
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-o") == 0) { 
+            if (i + 1 < argc) { 
+                outDir = argv[i + 1]; 
+                ++i;
+            } else {
+                std::cerr << "Missing argument for -o\n";
+                return 1;
+            }
+        } else {
+            inputFileName = argv[i];
+        }
+    }
+
+    // ensure the inputfile is not empty
+    if (inputFileName.empty()) {
+        std::cerr << "Input file name is required.\n";
         return 1;
     }
 
-    std::string inputFileName(argv[1]);
-    std::string baseFileName = inputFileName.substr(0, inputFileName.find_last_of('.')); // 从输入文件名中去掉扩展名
-    std::string outputFileName = baseFileName + ".filter.trace"; // 生成输出文件名
+    // get output file path & name
+    std::string baseFileName = inputFileName;
+
+    // get rid of ".raw.trace"
+    size_t pos = inputFileName.rfind(".raw.trace");
+    if (pos != std::string::npos)  
+        baseFileName = inputFileName.substr(0, pos);
+    // get the pure filename
+    pos = baseFileName.find_last_of("/");
+    if (pos != std::string::npos)
+        baseFileName = baseFileName.substr(pos + 1);
+
+    std::string outputFileName = outDir + "/" + baseFileName + ".filter.trace"; // 生成输出文件名
     std::ofstream outputFile(outputFileName); // 打开输出文件
-    //std::ofstream outputFile("output.txt");
+
     if (!outputFile.is_open()) {
-        std::cerr << "Error opening file: output.txt" << std::endl;
+        std::cerr << "Error opening file: " << outputFileName << std::endl;
         return 1;
     }
-
-    std::string line;
-    std::list<unsigned long long> lruCache; // LRU cache for cache lines
-    std::unordered_map<unsigned long long, std::list<unsigned long long>::iterator> cacheMap; // Maps cache line to its position in LRU
 
     // Process each line of the file
+    std::string line;
+    std::ifstream inputFile(inputFileName);
     while (getline(inputFile, line)) {
         if (line.empty()) continue; // Skip empty lines
 
@@ -56,26 +102,27 @@ int main(int argc, char* argv[]) {
         std::string address = line.substr(2); // Hexadecimal address as string
 
         unsigned long long cacheLine = addressToCacheLine(address);
+        unsigned long long setIndex = addressToSetIndex(address);
+        auto& set = cacheSets[setIndex];
 
-        // Check if cache line is already in LRU cache
+        // Check if the cache line is already in the set
         if (cacheMap.find(cacheLine) != cacheMap.end()) {
-            // Move the cache line to the front of the LRU cache
-            lruCache.erase(cacheMap[cacheLine]);
-            lruCache.push_front(cacheLine);
-            cacheMap[cacheLine] = lruCache.begin();
+            // If it exists, move it to the front of the LRU list
+            set.erase(cacheMap[cacheLine].second);
+            set.push_front(cacheLine);
+            cacheMap[cacheLine] = {setIndex, set.begin()};
         } else {
-            // If cache line is not in cache and cache is full, remove the least recently used cache line
-            if (lruCache.size() == LRU_CACHE_SIZE) {
-                cacheMap.erase(lruCache.back());
-                lruCache.pop_back();
+            // If the cache line is not in the cache
+            if (set.size() == WAYS) {
+                // If the set is full, remove the least recently used cache line
+                auto lastElem = set.back();
+                cacheMap.erase(lastElem);
+                set.pop_back();
             }
-            // Insert the new cache line at the front of the LRU cache
-            lruCache.push_front(cacheLine);
-            cacheMap[cacheLine] = lruCache.begin();
+            // Add the new cache line to the front of the LRU list
+            set.push_front(cacheLine);
+            cacheMap[cacheLine] = {setIndex, set.begin()};
 
-            // Convert address to virtual page number and output
-            //outputFile  << opType << " 0x" << addressToPageNumber(address) << std::endl;
-            // outputFile  << opType << " " << address << std::endl;
             outputFile  << opType << " " << address << "\n";
         }
     }
