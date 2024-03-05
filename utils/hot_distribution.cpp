@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
         if (fs::exists(filePath)) {
             std::ifstream file(filePath);
             std::string line;
-                        
+
             processedFileCount++;
             fileCount++;
 
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
 
             // 每30个文件统计一次
             if (fileCount == FILE_PERIOD || processedFileCount == fileTotalCount) {
-                std::cerr << "period: " << fileBatchIndex << " process done!" << std::endl;
+                std::cerr << "fileIdx: " << processedFileCount << ", period: " << fileBatchIndex << " process done!" << std::endl;
                 outputDistribution(pageAccessCount, filePrefix, fileBatchIndex++, outputDir);
                 pageAccessCount.clear(); // 重置页面访问计数器
                 fileCount = 0; // 重置文件计数器
