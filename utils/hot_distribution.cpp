@@ -42,9 +42,7 @@ void outputDistribution(const std::unordered_map<unsigned long long, unsigned>& 
     std::ofstream outputFile(outputFileName);
     outputFile << total << std::endl;
     for (size_t i = 0; i < pages.size(); ++i) {
-        if (pages[i].second != 0) {
-            outputFile << "0x" << std::hex << pages[i].first << " " << std::dec << pages[i].second << "\n";
-        }
+        outputFile << "0x" << std::hex << pages[i].first << " " << std::dec << pages[i].second << "\n";
     }
     outputFile.close();
 }
