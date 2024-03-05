@@ -14,3 +14,6 @@ gups_*
 mcf*
 r_Mat*
 run_BFS*
+pread_test.cpp
+utils/*
+trace.tar.gz
