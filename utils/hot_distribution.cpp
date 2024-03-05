@@ -69,13 +69,26 @@ int main(int argc, char* argv[]) {
     int fileCount = 0;
     int fileBatchIndex = 0; // 用于追踪输出文件的编号
 
+    // 计算符合filePrefix开头的文件总数
+    int fileTotalCount = 0; // 用于存储目录中符合条件的文件总数
     for (const auto& entry : fs::directory_iterator(dirPath)) {
-        std::string filePath = entry.path();
-        std::string pattern = "filter";
-        if (filePath.find(pattern) != std::string::npos &&
-            filePath.find(filePrefix) != std::string::npos) {
+        std::string filePath = entry.path().filename().string();
+        if (filePath.find(filePrefix) == 0) {
+            fileTotalCount++;
+        }
+    }
+    std::cerr << "共" << fileTotalCount << "个目标文件" << std::endl;
+
+    int processedFileCount = 0;
+    while (processedFileCount < fileTotalCount) {
+        std::string filePath = dirPath + "/" + filePrefix + "_" + 
+            std::to_string(processedFileCount) + ".filter.trace";
+        if (fs::exists(filePath)) {
             std::ifstream file(filePath);
             std::string line;
+                        
+            processedFileCount++;
+            fileCount++;
 
             while (getline(file, line)) {
                 std::istringstream iss(line);
@@ -86,22 +99,17 @@ int main(int argc, char* argv[]) {
                     pageAccessCount[pageNumber]++;
                 }
             }
-            fileCount++;
 
             // 每30个文件统计一次
-            if (fileCount == FILE_PERIOD) {
+            if (fileCount == FILE_PERIOD || processedFileCount == fileTotalCount) {
                 std::cerr << "period: " << fileBatchIndex << " process done!" << std::endl;
                 outputDistribution(pageAccessCount, filePrefix, fileBatchIndex++, outputDir);
                 pageAccessCount.clear(); // 重置页面访问计数器
                 fileCount = 0; // 重置文件计数器
             }
+        } else {
+            std::cerr << "文件: " << filePath << " 不存在" << std::endl;
         }
-    }
-
-    // 处理最后一批不足30个的文件
-    if (fileCount > 0) {
-        outputDistribution(pageAccessCount, filePrefix, fileBatchIndex, outputDir);
-        std::cerr << "period: " << fileBatchIndex << " process done!" << std::endl;
     }
 
     return 0;
