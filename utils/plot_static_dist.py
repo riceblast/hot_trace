@@ -3,18 +3,28 @@ import numpy as np
 from matplotlib.colors import ListedColormap, Normalize
 import matplotlib.cm as cm
 import os
+import argparse
+
+# 用户输入选项定义
+parser = argparse.ArgumentParser(description="Process files for heatmap generation.")
+parser.add_argument('-d', '--input_dir', required=True, help="Directory containing input hot_dist files")
+parser.add_argument('-p', '--file_prefix', required=True, help="Prefix of input files")
+parser.add_argument('-o', '--output_dir', required=True, help="Output Directory of plot")
+
+args = parser.parse_args()
 
 # 输入变量定义
-input_dir = './hot_dist/mcf/'  # 文件夹路径
-filePrefix = '20s'  # 文件前缀
-numbers = [0,1]  # 文件中数字数组
+input_dir = args.input_dir
+filePrefix = args.file_prefix
+output_dir = args.output_dir
+numbers = [0]  # 文件中数字数组
 
 # 初始化数据容器
 data = {}
 
 # 读取并处理多个文件
 for n in numbers:
-    file_path = f'{input_dir}{filePrefix}_hot_distribution_{n}.out'
+    file_path = f'{input_dir}/{filePrefix}_hot_distribution_{n}.out'
     with open(file_path, 'r') as file:
         next(file)  # 跳过第一行
         for line in file:
@@ -41,11 +51,15 @@ frequency_to_color = {5: 2, 15: 1, 25: 0}
 address_space = len(sorted_data)
 
 idx = 0
+statistics = {5:0, 15:0, 25:0}
 for address, frequency in sorted_data:
     if frequency != 0:
+        statistics[frequency] += 1
         color_idx = frequency_to_color.get(frequency, 0)  # 获取颜色索引
         plt.hlines(y=idx, xmin=0, xmax=1, colors=cmap.colors[color_idx], linewidth=0.1)
     idx += 1
+
+print('%.2f %.2f %.2f' % (statistics[5] / idx * 100, statistics[15] / idx * 100, statistics[25] / idx * 100))
 
 plt.title('Heatmap of Page Access Distribution')
 plt.ylabel('Address (Hex)')
@@ -62,5 +76,8 @@ cb = plt.colorbar(sm, ticks=[5/3, 1, 1/3], ax=ax)
 cb.set_ticklabels(['5%', '15%', '25%'])
 cb.set_label('Access Frequency')
 
-plt.show()
+save_path = os.path.join(output_dir, f"{filePrefix}_hot_dist_static.png")
+plt.savefig(save_path)
+
+plt.close()
 
