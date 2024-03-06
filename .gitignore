@@ -17,3 +17,4 @@ run_BFS*
 pread_test.cpp
 utils/*
 trace.tar.gz
+!utils/plot_static_dist.py
