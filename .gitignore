@@ -17,4 +17,6 @@ run_BFS*
 pread_test.cpp
 utils/*
 trace.tar.gz
-!utils/plot_static_dist.py
+!utils/plot_static_dist.*
+!utils/plot_over_time*
+!utils/plot_range*
