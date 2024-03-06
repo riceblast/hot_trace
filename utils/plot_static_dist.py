@@ -19,14 +19,18 @@ filePrefix = args.file_prefix
 output_dir = args.output_dir
 numbers = [0]  # 文件中数字数组
 
+
 # 初始化数据容器
 data = {}
 
+lineWidth=0.1
 # 读取并处理多个文件
 for n in numbers:
     file_path = f'{input_dir}/{filePrefix}_hot_distribution_{n}.out'
     with open(file_path, 'r') as file:
-        next(file)  # 跳过第一行
+        line_num=int(next(file))  # 跳过第一行
+        if (line_num > 200000):
+            lineWidth=0.01
         for line in file:
             address, frequency = line.strip().split()
             #address = int(address, 16)
@@ -40,7 +44,7 @@ for n in numbers:
 sorted_data = sorted(data.items(), key=lambda x: int(x[0], 16))
 
 # 绘图
-plt.figure(figsize=(10, 6), dpi=100)
+plt.figure(figsize=(10, 6), dpi=141)
 ax = plt.gca()  # 获取当前轴的引用
 
 colors = ['#F7DC6F', '#F39C12', '#d11a2d']  # 颜色映射: 淡黄，橘黄，深红
@@ -56,7 +60,7 @@ for address, frequency in sorted_data:
     if frequency != 0:
         statistics[frequency] += 1
         color_idx = frequency_to_color.get(frequency, 0)  # 获取颜色索引
-        plt.hlines(y=idx, xmin=0, xmax=1, colors=cmap.colors[color_idx], linewidth=0.1)
+        plt.hlines(y=idx, xmin=0, xmax=1, colors=cmap.colors[color_idx], linewidth=lineWidth)
     idx += 1
 
 print('%.2f %.2f %.2f' % (statistics[5] / idx * 100, statistics[15] / idx * 100, statistics[25] / idx * 100))
