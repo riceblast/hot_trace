@@ -29,8 +29,8 @@ for n in range(args.numbers + 1):
 # 地址排序并建立索引映射
 sorted_addresses = sorted(unique_addresses)
 address_to_index = {addr: idx for idx, addr in enumerate(sorted_addresses)}
-if (len(address_to_index) > 200000):
-    lineWidth=0.01
+if (len(address_to_index) > 300000):
+    lineWidth=0.05
 
 # 初始化绘图
 plt.figure(figsize=(10, 6), dpi=141)
