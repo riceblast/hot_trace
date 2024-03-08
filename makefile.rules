@@ -18,7 +18,7 @@
 # defining the test name twice (once in TOOL_ROOTS and again in TEST_ROOTS).
 # Tests defined here should not be defined in TOOL_ROOTS and TEST_ROOTS.
 # TEST_TOOL_ROOTS := MyMemTrace
-TEST_TOOL_ROOTS := vpn_dump inst_mem_num
+TEST_TOOL_ROOTS := vpn_dump pfn_dump inst_mem_num
 
 
 # This defines the tests to be run that were not already defined in TEST_TOOL_ROOTS.
