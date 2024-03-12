@@ -38,7 +38,6 @@ do
     ((file_num++))
 done
 echo "num: $file_num"
-exit 0
 
 total_err=$(cat $input | grep -i Err | wc -l)
 wb_err=$(cat $input | grep -i Err | grep -i "Page Not" | wc -l)

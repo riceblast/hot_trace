@@ -49,7 +49,7 @@ void outputDistribution(const std::unordered_map<unsigned long long, unsigned>& 
         return a.first < b.first;
     });
 
-    std::string outputFileName = outputDir + filePrefix + "_hot_distribution_" + std::to_string(fileBatchIndex) + ".out";
+    std::string outputFileName = outputDir + filePrefix + "_" + std::to_string(fileBatchIndex) + ".hot_dist.pout";
     std::ofstream outputFile(outputFileName);
     outputFile << total << std::endl;
     for (size_t i = 0; i < pages.size(); ++i) {
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
             fileTotalCount++;
         }
     }
-    std::cerr << "Total files: " << fileTotalCount << std::endl;
+    std::cerr << "Total Files: " << fileTotalCount << std::endl;
 
     int processedFileCount = 0;
     while (processedFileCount < fileTotalCount) {

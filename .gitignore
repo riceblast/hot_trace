@@ -23,4 +23,4 @@ trace.tar.gz
 plot_over_time_dist_BFS*
 plot_over_time_dist_MCF*
 plot_over_time_dist_PR*
-./utils/partition_trace.sh
+!utils/partition_trace.sh
