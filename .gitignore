@@ -26,3 +26,4 @@ plot_over_time_dist_BFS*
 plot_over_time_dist_MCF*
 plot_over_time_dist_PR*
 res/*
+!utils/partition_trace.sh
