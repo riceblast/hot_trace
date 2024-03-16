@@ -20,9 +20,13 @@ trace.tar.gz
 !utils/plot_static_dist.*
 !utils/plot_over_time*
 !utils/plot_range*
+!utils/plot_pa_difference.*
+!utils/plot_reverse_cdf.*
 plot_over_time_dist_BFS*
 plot_over_time_dist_MCF*
 plot_over_time_dist_PR*
 !utils/partition_trace.sh
 !utils/plot_learned_dram.py
 PageRank
+res/*
+!utils/partition_trace.sh
