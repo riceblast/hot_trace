@@ -62,9 +62,9 @@ def plot_differences(differences, prefix):
     plt.xlabel('Index')
     plt.ylabel('Difference')
     if args.type == 'p':
-        plt.title(f'Differences between Adjacent Physical Pages({benchname}_{num})')
+        plt.title(f'Differences between Adjacent Physical Pages({benchname}_{num}s)')
     else:
-        plt.title(f'Differences between Adjacent Virtual Pages({benchname}_{num})')
+        plt.title(f'Differences between Adjacent Virtual Pages({benchname}_{num}s)')
 
     plt.grid(True, which="both", ls="--")  # 添加网格线
     #plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: hex(int(x))[2:]))  # 设置纵坐标为16进制
@@ -83,9 +83,9 @@ if __name__ == "__main__":
     differences = calculate_differences(pa_list)
 
     if (args.type == 'p'):
-        prefix = benchname + '_' + num + '_hot_5_15_pa_diff'
+        prefix = benchname + '_' + num + 's_hot_5_15_pa_diff'
     else:
-        prefix = benchname + '_' + num + '_hot_5_15_va_diff'
+        prefix = benchname + '_' + num + 's_hot_5_15_va_diff'
     os.makedirs(output_dir + '/' + benchname + '/', exist_ok=True)
     # 将差值结果保存
     np.savetxt(output_dir + '/' + benchname + '/' + prefix + '.out', differences, fmt='%d')
