@@ -30,3 +30,4 @@ plot_over_time_dist_PR*
 PageRank
 res/*
 !utils/partition_trace.sh
+!utils/plot_hot_cdf.py
