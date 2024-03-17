@@ -22,6 +22,7 @@ trace.tar.gz
 !utils/plot_range*
 !utils/plot_pa_difference.*
 !utils/plot_reverse_cdf.*
+!utils/lr.py
 plot_over_time_dist_BFS*
 plot_over_time_dist_MCF*
 plot_over_time_dist_PR*
