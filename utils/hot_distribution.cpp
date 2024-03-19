@@ -24,7 +24,17 @@ const int SLIDING_STEP = 1;   // every SLIDING_STEP seconds will output hot dist
 namespace fs = std::filesystem;
 
 unsigned long long addressToPageNumber(const std::string& address) {
-    unsigned long long addr = std::stoull(address, nullptr, 16);
+    unsigned long long addr = 0;
+    try {
+        addr = std::stoull(address, nullptr, 16);
+    } catch(const std::invalid_argument& ia) {
+        std::cerr << "Invalid argument exception when calling stoull" << std::endl;
+        std::cerr << "Invalid argument: " << address << std::endl;
+        exit(1);
+    } catch (const std::out_of_range& oor) {
+        std::cerr << "The number is out of range" << std::endl;
+        std::cerr << "Out range number: " << address << std::endl;
+    }
     return addr / PAGE_SIZE;
 }
 
@@ -61,7 +71,7 @@ void outputDistribution(const std::unordered_map<unsigned long long, unsigned>& 
 int main(int argc, char* argv[]) {
     // mkdir sure the command line has the right number
     if (argc != 5 || std::string(argv[1]) != "-o") {
-        std::cerr << "Usage: " << argv[0] << " -o <output_directory> <directory> <file_prefix>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " -o <output_directory> <directory> <file_prefix> <>" << std::endl;
         return 1;
     }
 

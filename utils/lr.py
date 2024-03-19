@@ -16,7 +16,7 @@
 
 import numpy as np
 
-global_threshold = 32
+global_threshold = 16
 global_models = []
 global_start_index = 0
 
@@ -63,7 +63,7 @@ def traverse_and_train(list, threshold):
         if res == True:
             global_models.append(Model(global_start_index, len(sublist), param[1], param[0], True))
             global_start_index += len(sublist)
-        elif threshold >= 8: # 最小分割阈值为2
+        elif threshold >= 4: # 最小分割阈值为2
             traverse_and_train(sublist, threshold // 2)
         else:
             global_models.append(Model(global_start_index, len(sublist), None, None, False))
@@ -83,7 +83,7 @@ def train_and_test(list):
         x, y = X[i], Y[i]
         y_hat = round(x * theta[1] + theta[0])
         # TODO
-        if abs(y_hat - y) > 4: # err_bound: ±1
+        if abs(y_hat - y) > 1: # err_bound: ±1
             return None, False
     return theta, True
 
@@ -134,5 +134,5 @@ filename = '../test_trace/hot_dist_5_15/BFS/BFS_15.hot_5_15.out'
 conv = lambda a: int(a, 16)
 data = np.loadtxt(filename, converters={0: conv})
 traverse_and_train(data, threshold=global_threshold)
-write_seg_to_file("BFS_15.t4.learned_seg.out")
-write_dram_to_file("BFS_15.t4.learned_dram.out", data)
+write_seg_to_file("BFS_15.t1.learned_seg.out")
+write_dram_to_file("BFS_15.t1.learned_dram.out", data)

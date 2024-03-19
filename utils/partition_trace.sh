@@ -32,7 +32,7 @@ split -d -l${LINE_PER_SECOND} ${input} "${bench_name}_split_middle_"
 file_num=0
 for file in "${bench_name}"_split_middle_*
 do
-    cat $file | grep -vi Err | grep -v "=" | grep -v "-" > "${out_dir}/${bench_name}_${file_num}.out"
+    cat $file | grep -vi Err | grep -v "=" | grep -v "-" | grep "0x" > "${out_dir}/${bench_name}_${file_num}.out"
     rm $file
     echo "$file -> ${out_dir}/${bench_name}_${file_num}.out"
     ((file_num++))
