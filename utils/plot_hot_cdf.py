@@ -16,14 +16,14 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser(description='Caculate the CDF plot of hot pages')
 parser.add_argument('--trace_dir', help='Directory of trace file')
 parser.add_argument('--output_dir', help='Output Directory of result')
-parser.add_argument('--type', choices=['v', 'p'], default='p', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
 parser.add_argument('num', help='Index of benhmark trace')
 
 args = parser.parse_args()
 
-output_dir="../res"
-trace_dir = "/Users/yangxr/downloads/hot_dist_5_15/"
+output_dir="/home/yangxr/downloads/test_trace/res"
+trace_dir = "/home/yangxr/downloads/test_trace/hot_dist_5_15"
 
 def read_and_sort(benchname, num):
     if (args.type == 'p'):
@@ -49,7 +49,7 @@ def plot_hot_CDF(hot_pages, prefix):
         plt.title(f'Hot VPN CDF({benchname}_{num}s)')
     plt.ylabel('DRAM Mapping Addr')
 
-    plt.savefig(output_dir + '/' + benchname + '/' + prefix + ".png")
+    plt.savefig(output_dir + '/' + benchname + '/' + 'CDF' + '/' + prefix + ".png")
 
 
 if __name__ == "__main__":
@@ -65,5 +65,5 @@ if __name__ == "__main__":
         prefix = benchname + '_' + num + 's_hot_5_15_PPN_CDF'
     else:
         prefix = benchname + '_' + num + 's_hot_5_15_VPN_CDF'
-    os.makedirs(output_dir + '/' + benchname + '/', exist_ok=True)
+    os.makedirs(output_dir + '/' + benchname + '/' + 'CDF', exist_ok=True)
     plot_hot_CDF(hot_pages, prefix)
