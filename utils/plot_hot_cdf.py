@@ -22,14 +22,17 @@ parser.add_argument('num', help='Index of benhmark trace')
 
 args = parser.parse_args()
 
-output_dir="/home/yangxr/downloads/test_trace/res"
-trace_dir = "/home/yangxr/downloads/test_trace/hot_dist_5_15"
+if (args.type == 'v'):
+    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "CDF/VPN"
+elif (args.type == 'p'):
+    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "CDF/PPN"
+trace_dir = "/home/yangxr/downloads/test_trace/hot_dist_5_15/" + args.benchname
 
 def read_and_sort(benchname, num):
     if (args.type == 'p'):
-        filename = trace_dir + '/' + benchname + '/' + benchname + '_' + num + '.hot_5_15.out'
+        filename = trace_dir + '/' + benchname + '_' + num + '.hot_5_15.out'
     else:
-        filename = trace_dir + '/' + benchname + '/' + benchname + '_' + num + '.hot_v_5_15.out'
+        filename = trace_dir + '/' + benchname + '_' + num + '.hot_v_5_15.out'
     
     hot_pages = set()
     with open(filename, 'r') as file:
@@ -49,7 +52,9 @@ def plot_hot_CDF(hot_pages, prefix):
         plt.title(f'Hot VPN CDF({benchname}_{num}s)')
     plt.ylabel('DRAM Mapping Addr')
 
-    plt.savefig(output_dir + '/' + benchname + '/' + 'CDF' + '/' + prefix + ".png")
+    plt.savefig(output_dir + '/' + prefix + ".png")
+
+    print(f"Save CDF Plot: {output_dir}/{prefix}.png")
 
 
 if __name__ == "__main__":
@@ -65,5 +70,5 @@ if __name__ == "__main__":
         prefix = benchname + '_' + num + 's_hot_5_15_PPN_CDF'
     else:
         prefix = benchname + '_' + num + 's_hot_5_15_VPN_CDF'
-    os.makedirs(output_dir + '/' + benchname + '/' + 'CDF', exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     plot_hot_CDF(hot_pages, prefix)

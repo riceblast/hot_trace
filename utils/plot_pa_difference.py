@@ -25,29 +25,32 @@ import numpy as np
 parser = argparse.ArgumentParser(description='Caculate the difference between adjacent page numbers')
 parser.add_argument('--trace_dir', help='Directory of trace file')
 parser.add_argument('--output_dir', help='Output Directory of result')
-parser.add_argument('--type', choices=['v', 'p'], default='p', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
 parser.add_argument('num', help='Index of benhmark trace')
 
 args = parser.parse_args()
 
-output_dir = "../res"
-trace_dir = "../test_trace/hot_dist_5_15"
+if (args.type == 'v'):
+    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "PN_DIFF/VPN"
+elif (args.type == 'p'):
+    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "PN_DIFF/PPN"
+trace_dir = "/home/yangxr/downloads/test_trace/hot_dist_5_15/" + args.benchname
 
 # 读取文件并排序、去重
 def read_and_sort(benchname, num):
     # e.g ../test_trace/hot_dist_5_15/BFS/BFS_20.hot_5_15.out
     if (args.type == 'p'):
-        filename = trace_dir + '/' + benchname + '/' + benchname + '_' + num + '.hot_5_15.out'
+        filename = trace_dir + '/' + benchname + '_' + num + '.hot_5_15.out'
     else:
-        filename = trace_dir + '/' + benchname + '/' + benchname + '_' + num + '.hot_v_5_15.out'
+        filename = trace_dir + '/' + benchname + '_' + num + '.hot_v_5_15.out'
 
     page_aligned_pas = set()
     with open(filename, 'r') as file:
         for line in file:
             pa = int(line.strip(), 16)
             page_aligned_pas.add(pa)
-    print("DEBUG: Successfully read Addr from file ", filename)
+    #print("DEBUG: Successfully read Addr from file ", filename)
     return sorted(page_aligned_pas)
 
 # 计算相邻两个PA的差值
@@ -69,8 +72,10 @@ def plot_differences(differences, prefix):
     plt.grid(True, which="both", ls="--")  # 添加网格线
     #plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: hex(int(x))[2:]))  # 设置纵坐标为16进制
 
-    plt.savefig(output_dir + '/' + benchname + '/' + prefix + "_logy.png")
-    plt.show()
+    plt.savefig(output_dir + '/' + prefix + "_logy.png")
+    #plt.show()
+
+    print(f"Save File: {output_dir}/{prefix}_logy.png")
 
 if __name__ == "__main__":
     benchname, num = args.benchname, args.num
@@ -86,8 +91,8 @@ if __name__ == "__main__":
         prefix = benchname + '_' + num + 's_hot_5_15_pa_diff'
     else:
         prefix = benchname + '_' + num + 's_hot_5_15_va_diff'
-    os.makedirs(output_dir + '/' + benchname + '/', exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     # 将差值结果保存
-    np.savetxt(output_dir + '/' + benchname + '/' + prefix + '.out', differences, fmt='%d')
+    np.savetxt(output_dir + '/' + prefix + '.out', differences, fmt='%d')
     # 根据差值信息，画图并保存
     plot_differences(differences, prefix)
