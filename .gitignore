@@ -31,3 +31,6 @@ PageRank
 res/*
 !utils/partition_trace.sh
 !utils/plot_hot_cdf.py
+!utils/plot_all_CDF.sh
+!utils/plot_all_PN_DIFF.sh
+!utils/plot_all_figure.sh
