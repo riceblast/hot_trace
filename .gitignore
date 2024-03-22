@@ -23,6 +23,7 @@ trace.tar.gz
 !utils/plot_pa_difference.*
 !utils/plot_reverse_cdf.*
 !utils/lr.py
+!utils/plot_page_diff_bin.py
 plot_over_time_dist_BFS*
 plot_over_time_dist_MCF*
 plot_over_time_dist_PR*
@@ -31,3 +32,7 @@ plot_over_time_dist_PR*
 PageRank
 res/*
 !utils/partition_trace.sh
+!utils/plot_hot_cdf.py
+!utils/plot_all_CDF.sh
+!utils/plot_all_PN_DIFF.sh
+!utils/plot_all_figure.sh
