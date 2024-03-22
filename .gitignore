@@ -36,3 +36,4 @@ res/*
 !utils/plot_all_CDF.sh
 !utils/plot_all_PN_DIFF.sh
 !utils/plot_all_figure.sh
+tmp/
