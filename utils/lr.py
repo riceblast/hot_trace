@@ -82,6 +82,7 @@ def train_and_test(list):
     for i in range(len(X)):
         x, y = X[i], Y[i]
         y_hat = round(x * theta[1] + theta[0])
+        # TODO
         if abs(y_hat - y) > 1: # err_bound: ±1
             return None, False
     return theta, True
@@ -133,5 +134,5 @@ filename = '../test_trace/hot_dist_5_15/BFS/BFS_15.hot_5_15.out'
 conv = lambda a: int(a, 16)
 data = np.loadtxt(filename, converters={0: conv})
 traverse_and_train(data, threshold=global_threshold)
-write_seg_to_file("BFS_15.learned_seg.out")
-write_dram_to_file("BFS_15.learned_dram.out", data)
+write_seg_to_file("BFS_15.t1.learned_seg.out")
+write_dram_to_file("BFS_15.t1.learned_dram.out", data)
