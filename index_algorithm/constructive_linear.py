@@ -246,7 +246,8 @@ def caculate_statistics():
     stat.dram_fit_ratio = round(stat.total_hot_page_correct / stat.total_hot_page_cover)
     stat.dram_gap_ratio = round(sum([seg.dram_gap for seg in global_learned_segs[-1]]) / stat.total_hot_page_cover, 2)
     stat.dram_conflict_ratio = round(sum([seg.dram_conflict for seg in global_learned_segs[-1]]) / stat.total_hot_page_cover, 2)
-    stat.err_page = sum(seg.dram_gap for seg in global_learned_segs[-1]) + sum(seg.dram_conflict for seg in global_learned_segs[-1])    # BUG: 目前只适用于stride=1的情况
+    #stat.err_page = sum(seg.dram_gap for seg in global_learned_segs[-1]) + sum(seg.dram_conflict for seg in global_learned_segs[-1])    # BUG: 目前只适用于stride=1的情况
+    stat.err_page = stat.total_addr_space_cover - stat.total_hot_page_correct   # BUG: 目前只适用于stride=1的情况
     stat.bf_false_positive = round(bf_false_positive(stat.err_page), 2)
     stat.bf_size = round(bf_size(stat.err_page), 2)
 
