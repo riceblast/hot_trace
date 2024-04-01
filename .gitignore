@@ -38,3 +38,4 @@ res/*
 !utils/plot_all_figure.sh
 !utils/constructive_linear.py
 tmp/
+test_trace/
