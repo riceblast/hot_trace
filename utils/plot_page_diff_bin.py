@@ -9,7 +9,7 @@ parser.add_argument('--trace_dir', help='Directory of trace file')
 parser.add_argument('--output_dir', help='Output Directory of result')
 parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
 parser.add_argument('--start', help='start filename')
-parser.add_argument('--end', help='end filename')
+parser.add_argument('--cnt', help='process file count')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
 
 args = parser.parse_args()
@@ -25,12 +25,12 @@ def read_data(filename_prefix, filename_suffix, start, end):
     global g_data_arr_5_10
     global g_data_arr_10_100
     global g_data_arr_100_INF
-    i = start
-    while True and i <= end:
-        filename = filename_prefix + f"/{args.benchname}_{i}" + filename_suffix
-        # print("filename")
+    curr = start
+    while curr <= end:
+        filename = filename_prefix + f"/{args.benchname}_{curr}" + filename_suffix
         if not os.path.exists(filename):
-            return
+            return curr - 1
+        # print(f"read {filename}")
         addrs = set() 
         with open(filename, "r") as file:
             for line in file:
@@ -38,13 +38,20 @@ def read_data(filename_prefix, filename_suffix, start, end):
                 addrs.add(addr)
         sorted_addrs = sorted(addrs)
         differences = np.array([sorted_addrs[i + 1] - sorted_addrs[i] for i in range(len(sorted_addrs) - 1)])
+        
         total = len(differences)
-        bin_cnt = np.bincount(differences)
-        g_data_arr_1_5.append(sum(bin_cnt[0:5]) / total * 100)
-        g_data_arr_5_10.append(sum(bin_cnt[5:10]) / total * 100)
-        g_data_arr_10_100.append(sum(bin_cnt[10:100]) / total * 100)
-        g_data_arr_100_INF.append(sum(bin_cnt[100:]) / total * 100)
-        i += 1
+        tmp_1_5, tmp_5_10, tmp_10_100, tmp_100_INF = 0, 0, 0, 0
+        for i in differences:
+            if i < 5: tmp_1_5 += 1
+            elif i < 10: tmp_5_10 += 1
+            elif i < 100: tmp_10_100 += 1
+            else: tmp_100_INF += 1
+        g_data_arr_1_5.append(tmp_1_5 / total * 100)
+        g_data_arr_5_10.append(tmp_5_10 / total * 100)
+        g_data_arr_10_100.append(tmp_10_100 / total * 100)
+        g_data_arr_100_INF.append(tmp_100_INF / total * 100)
+        curr += 1
+    return end
 
 
 def plot_bin(output_filename, start, end, benchname):
@@ -88,8 +95,8 @@ if __name__ == "__main__":
     else:
         start = 0 # default, 0
     
-    if args.end is not None:
-        end = int(args.end)
+    if args.cnt is not None:
+        end = start + int(args.cnt) - 1
     else:
         end = 1e7 # default, INF
 
@@ -100,6 +107,6 @@ if __name__ == "__main__":
         output_dir += args.benchname + "/" + "PN_DIFF/PPN"
         suffix = ".hot_5_15.out"
     trace_dir = "/home/yangxr/downloads/test_trace/hot_dist_5_15/" + args.benchname
-    read_data(trace_dir, suffix, start, end)
+    end = read_data(trace_dir, suffix, start, end)
     output_path = output_dir + '/' + args.benchname + f'_{start}_{end}_pa_diff_bin.png'
     plot_bin(output_path, start, end, args.benchname)
