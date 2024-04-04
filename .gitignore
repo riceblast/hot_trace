@@ -37,5 +37,6 @@ res/*
 !utils/plot_all_PN_DIFF.sh
 !utils/plot_all_figure.sh
 !utils/constructive_linear.py
+!utils/hot_page_life_time.py
 tmp/
 test_trace/
