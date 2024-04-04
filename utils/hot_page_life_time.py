@@ -57,7 +57,7 @@ def monitor_life_time():
 
     for time in range(1, len(global_trace)):
         assert time in global_trace.keys()
-        print(f"time: {time}")
+        print(f"{args.benchname} time: {time}")
 
         global_hot_diff.append([0, 0, 0, 0])
 
@@ -68,6 +68,9 @@ def monitor_life_time():
                 old_hot_pages.insert(old_idx, [new_addr, 1])
                 old_idx += 1
                 continue
+
+            if (old_idx >= len(old_hot_pages)):
+                print('test')
 
             # 每次将old_hot_pages处理到比刚好大于当前new_addr的位置
             if (old_hot_pages[old_idx][0] > new_addr):
@@ -91,6 +94,13 @@ def monitor_life_time():
                 # 热页变冷
                 global_hot_diff[time][0] += 1
 
+            if (old_idx == len(old_hot_pages)):
+                if (old_hot_pages[old_idx - 1][0] < new_addr):
+                    old_hot_pages.insert(old_idx, [new_addr, 1])
+                    old_idx += 1
+                
+                continue
+
             # 代码执行到这里说明， old_hot_pages[old_idx][0] > new_addr
             # 现在要将new_addr加入到old_hot_pages中
             if (old_idx < len(old_hot_pages) and
@@ -111,12 +121,14 @@ def monitor_life_time():
         # 计算冷热页变化相对于上一个周期热页的比例
         global_hot_diff[time][2] = global_hot_diff[time][0] / len(global_trace[time - 1])
         global_hot_diff[time][3] = global_hot_diff[time][1] / len(global_trace[time - 1])
-        
-        #print(f"old_idx: {old_idx} len(global_trace[time]): {len(global_trace[time])}")
+          
         for idx in range(0, len(old_hot_pages)):
             if old_hot_pages[idx][0] != global_trace[time][idx]:
                 print(f"idx: {idx} old:{hex(old_hot_pages[idx][0])} new:{hex(global_trace[time][idx])}")
                 exit(1)
+
+        if (old_idx != len(global_trace[time])):
+            print(f"old_idx: {old_idx} len(global_trace[time]): {len(global_trace[time])}")
         assert(old_idx == len(global_trace[time]))
 
 def dump_file():
