@@ -38,5 +38,8 @@ res/*
 !utils/plot_all_figure.sh
 !utils/constructive_linear.py
 !utils/hot_page_life_time.py
+!utils/ideal_hot_distribution.cpp
+!utils/ideal_hot_dist.sh
+!utils/Makefile
 tmp/
 test_trace/
