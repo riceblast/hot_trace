@@ -216,21 +216,16 @@ void init_dram(void)
 {
     uint64_t total_footprint = 0;
     uint64_t avg_total_footprint = 0;
-    for (int i = skip_time; i < (int)(traces.size()); i += time_period) {
-        uint64_t cur_footprint = 0;
-        uint64_t range = std::min((uint64_t)(i + time_period), (uint64_t)(traces.size()));
-        for (int k = i; (uint64_t)k < range; k++) {
-            cur_footprint += traces[i]->size();
-        }
-        
-        total_footprint += cur_footprint;
-        printf("trace[%d] size: %lu\n", i, cur_footprint);
+    int idx = 0;
+    for (auto it = period_traces.begin(); it != period_traces.end(); it++) {
+        total_footprint += (*it)->size();
+        printf("footprint[%d]: %lu\n", idx, (*it)->size());
+        idx++;
     }
-
-    avg_total_footprint = total_footprint / ((trace_num + time_period - 1)/ time_period);
+    avg_total_footprint = total_footprint / period_traces.size();
     dram_cap_pn = avg_total_footprint * DRAM_RATIO / 100;
-    printf("分母: %u, 平均值: %lu\n", (trace_num + time_period - 1)/ time_period, avg_total_footprint);
-    printf("Time: %d, DRAM_RATIO: %d%%, DRAM_PN: %lu\n",time_period, DRAM_RATIO, dram_cap_pn);
+    printf("Period Num: %u, 平均值: %lu\n", (trace_num + time_period - 1)/ time_period, avg_total_footprint);
+    printf("Period: %d, DRAM_RATIO: %d%%, DRAM_PN: %lu\n",time_period, DRAM_RATIO, dram_cap_pn);
 }
 
 void init_env(int argc, char* argv[]) 
@@ -244,7 +239,7 @@ void init_env(int argc, char* argv[])
 
 void create_output_dir(void) {
     mkdir(output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    output_dir = "/home/yangxr/downloads/test_trace/ideal_hot_dist/" + benchname;
+    output_dir = "/home/yangxr/downloads/test_trace/hot_dist/ideal/" + benchname;
     mkdir(output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     output_dir = output_dir + "/" + std::to_string(time_period);
     mkdir(output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -252,7 +247,7 @@ void create_output_dir(void) {
 }
 
 // 使用不同period生成trace时，初始化环境变量
-void init_local(void) {
+void init_local_env(void) {
     // 释放已有的period资源
     for (auto map_ptr: period_traces) {
         delete map_ptr;
@@ -260,7 +255,6 @@ void init_local(void) {
 
     time_period = periods[period_idx];
     create_output_dir();
-    init_dram();
 
     period_traces.resize((trace_num + time_period - 1)/ time_period);
 
@@ -272,6 +266,7 @@ void get_hot_dist(void) {
     // trace_idx: 0, time_perid * 1, time_period * 2,...
     for(uint64_t period_idx = 0; period_idx < period_traces.size(); period_idx += 1) {
 
+        std::unordered_map<uint64_t, uint64_t>* page_freq_period = new std::unordered_map<uint64_t, uint64_t>;
         uint64_t trace_range = std::min((uint64_t)((period_idx + 1) * time_period), (uint64_t)(traces.size()));
         for(uint64_t trace_idx = period_idx * time_period; trace_idx < trace_range; trace_idx++) {
 
@@ -279,8 +274,7 @@ void get_hot_dist(void) {
                 printf("err: trace_idx %ld, traces size %lu\n", trace_idx, traces.size());
                 exit(1);
             }
-
-            std::unordered_map<uint64_t, uint64_t>* page_freq_period = new std::unordered_map<uint64_t, uint64_t>;
+            
             for (const auto& page: *(traces[trace_idx])) {
                 if(page_freq_period->find(page.first) == page_freq_period->end()) {
                     (*(page_freq_period))[page.first] = page.second;
@@ -288,8 +282,8 @@ void get_hot_dist(void) {
                     (*(page_freq_period))[page.first] += page.second;
                 }
             }
-            period_traces[period_idx] = page_freq_period;
         }
+        period_traces[period_idx] = page_freq_period;
     }
 }
 
@@ -343,8 +337,9 @@ void dump_hot_dist(void) {
 int main(int argc, char* argv[]) {
     init_env(argc, argv);
     while (period_idx < (int)periods.size()) {
-        init_local();
+        init_local_env();
         get_hot_dist();
+        init_dram();
         dump_hot_dist();
         period_idx++;
     }
