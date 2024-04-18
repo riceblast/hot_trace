@@ -31,7 +31,7 @@ parser.add_argument('benchname', help='Target benchmark trace used to get page d
 args = parser.parse_args()
 
 global_file_time = 0 # 现在正在处理的时间数据
-trace_dir = "/home/yangxr/downloads/test_trace/ideal_hot_dist/" + args.benchname + "/" + str(args.period)
+trace_dir = "/home/yangxr/downloads/test_trace/hot_dist/ideal/" + args.benchname + "/" + str(args.period)
 
 if (args.type == 'v'):
     output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/PN_DIFF/VPN"
