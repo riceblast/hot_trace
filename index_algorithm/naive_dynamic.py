@@ -14,27 +14,44 @@ global_threshold = 16
 global_learned_segs = []
 global_start_index = 0
 global_file_name = 0
+global_stats = []   # list(class Stats)
 
 parser = argparse.ArgumentParser(description='Apply naive linear algorithm to benchmark trace')
+parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--period', default=1, type=int, help='The division period of trace')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
-parser.add_argument('type', help='[PPN/VPN]')
 args = parser.parse_args()
 
-trace_dir='/home/yangxr/downloads/test_trace/hot_dist_5_15/' + args.benchname + '/'
-output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/Learned_Index_v2/" + args.type
+global_file_time = 0 # 现在正在处理的时间数据
+output_prefix = ""
+trace_dir = "/home/yangxr/downloads/test_trace/hot_dist/ideal/" + args.benchname + "/" + str(args.period)
+
+if (args.type == 'v'):
+    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/Index/VPN/naive_index/v2"
+    trace_suffix = 'vout'
+elif (args.type == 'p'):
+    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/Index/PPN/naive_index/v2"
+    trace_suffix = 'pout'
 
 # overlap = 0
 # total = 0
 
 class Model:
-    def __init__(self, _start_addr, _end_addr, _length, _k, _b, _bitmap):
+    def __init__(self, _start_addr, _end_addr, _length, _k, _b, _bitmap, _hot_ratio):
         self.start_addr = int(_start_addr)
         self.end_addr = int(_end_addr)
         self.length = _length
         self.k = _k
         self.b = _b
         self.bitmap = _bitmap
+        self.hot_ratio = _hot_ratio
 
+class Stats:
+    def __init__(self):
+        self.time = 0
+        self.segs_num = 0
+        self.avg_seg_len = 0
+        self.hot_ratio = 0
 
 # 求解线性回归（返回的应该是一个1维参数？）
 # 返回值 param (b, k)
@@ -82,6 +99,7 @@ def train_and_test(list, _threshold_is_2, _bound=0.7):
     # global overlap
     # global total
     global global_learned_segs
+    global global_file_name
 
     X = np.array(list, dtype=int) - list[0]
     Y = np.array(range(len(X)))
@@ -103,7 +121,7 @@ def train_and_test(list, _threshold_is_2, _bound=0.7):
     #     overlap += 1
     #     print(f"total: {total}, overlap: {overlap}")
     # total += 1
-    global_learned_segs[-1].append(Model(p_x[0] + list[0], p_x[-1] + list[0], len(X), model[1], model[0], bitmap))
+    global_learned_segs[-1].append(Model(p_x[0] + list[0], p_x[-1] + list[0], len(X), model[1], model[0], bitmap, sum(res) / len(res)))
     return True
 
 
@@ -118,10 +136,37 @@ def write_seg_to_file():
         'intercept': [seg.b for seg in global_learned_segs[-1]],
         'addr_space_cover': [seg.end_addr - seg.start_addr + 1 for seg in global_learned_segs[-1]],
         'hot_page_cover': [seg.length for seg in global_learned_segs[-1]],
+        'hot_ratio': [seg.hot_ratio for seg in global_learned_segs[-1]]
     })
 
-    df.to_csv(f'{output_dir}/{args.benchname}_{global_file_time}s.learned_index_v1.segs.csv')
+    df['hot_ratio'] = df['hot_ratio'].apply(lambda x: format(x, '.2f'))
+    df.to_csv(f'{output_dir}/{args.benchname}_{global_file_time}s.learned_index_v2.segs.csv')
 
+def update_stats():
+    global global_stats
+
+    stat = Stats()
+    stat.time = global_file_name
+    stat.segs_num = len(global_learned_segs[-1])
+    stat.avg_seg_len = sum([seg.length for seg in global_learned_segs[-1]]) // stat.segs_num
+    stat.hot_ratio =  sum([seg.length * seg.hot_ratio for seg in global_learned_segs[-1]])\
+        / (sum([seg.length for seg in global_learned_segs[-1]]))
+
+    global_stats.append(stat)
+
+def write_stats_to_file():
+    global global_stats
+
+    df = pd.DataFrame({
+        'time': [stat.time for stat in global_stats],
+        'seg_nums': [stat.segs_num for stat in global_stats],
+        'avg_seg_len': [stat.avg_seg_len for stat in global_stats],
+        'hot_ratio': [stat.hot_ratio for stat in global_stats],
+    })
+
+    df = df.sort_values(by=['time'])
+    df['hot_ratio'] = df['hot_ratio'].apply(lambda x: format(x, '.2f'))
+    df.to_csv(f'{output_dir}/{args.benchname}.learned_index_v2.stats.csv')
 
 
 def write_dram_to_file(data):
@@ -148,31 +193,26 @@ def write_dram_to_file(data):
 
 def init_local_env(filename):
     global global_file_time
+    global output_prefix
 
     base_filename = os.path.basename(filename)
     global_file_time = int(base_filename.split('.')[0].split('_')[1])
     print(f"processing bench: {args.benchname} time: {global_file_time}")
 
+    output_prefix = args.benchname + "_" + str(global_file_name)
+
 
 if __name__ == '__main__':
-    if args.type == 'PPN':
-        prefix = 'hot_dist.pout'
-    elif args.type == 'VPN':
-        prefix = 'hot_v_5_15.out'
-    else:
-        print("arg type should be [VPN/PPN]")
-        exit(1)
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-    os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
     conv = lambda a: int(a, 16)
     first = True
     for filename in os.listdir(trace_dir):
-        if (filename.endswith(prefix)):
+        if (filename.endswith(trace_suffix)):
             global_learned_segs.append([])
             init_local_env(filename)
-            data = np.loadtxt(trace_dir+filename, dtype=int, converters={0: conv}, usecols=0, skiprows=1)
+            data = np.loadtxt(trace_dir+ "/" + filename, dtype=int, converters={0: conv}, usecols=0, skiprows=1)
             traverse_and_train(data, threshold=global_threshold)
             write_seg_to_file()
-            write_dram_to_file(data)
-
+            update_stats()
+            #write_dram_to_file(data)
+    write_stats_to_file()
