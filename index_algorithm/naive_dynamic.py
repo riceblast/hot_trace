@@ -146,7 +146,7 @@ def update_stats():
     global global_stats
 
     stat = Stats()
-    stat.time = global_file_name
+    stat.time = global_file_time
     stat.segs_num = len(global_learned_segs[-1])
     stat.avg_seg_len = sum([seg.length for seg in global_learned_segs[-1]]) // stat.segs_num
     stat.hot_ratio =  sum([seg.length * seg.hot_ratio for seg in global_learned_segs[-1]])\
