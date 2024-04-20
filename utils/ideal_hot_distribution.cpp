@@ -33,9 +33,10 @@ uint64_t addr_space_range = 0;  // 最大的地址空间范围
 const int DRAM_RATIO = 10; // DRAM 容量为 benchmark稳定WSS的10%
 
 std::string benchname;
-std::string input_dir = "/home/yangxr/downloads/test_trace/raw_data";
+std::string input_dir = "/home/yangxr/downloads/test_trace/raw_data/ideal";
 //std::string input_dir = "/home/yangxr/downloads/test_trace/tmp";
 std::string output_dir;
+std::string global_output_dir;
 
 std::vector<int> periods;   // 记录想要所有输出的period序列，形如：1,2,3,4,5
 std::vector<std::unordered_map<uint64_t, uint64_t>*> traces; // 处理所有raw_data读入的trace，pn -> access_freq
@@ -244,6 +245,13 @@ void create_output_dir(void) {
     output_dir = output_dir + "/" + std::to_string(time_period);
     mkdir(output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     printf("output_dir: %s\n", output_dir.c_str());
+
+    mkdir(global_output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    global_output_dir = "/home/yangxr/downloads/test_trace/global_dist/ideal/" + benchname;
+    mkdir(global_output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    global_output_dir = global_output_dir + "/" + std::to_string(time_period);
+    mkdir(global_output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    printf("global output_dir: %s\n", output_dir.c_str());
 }
 
 // 使用不同period生成trace时，初始化环境变量
@@ -313,10 +321,14 @@ void dump_hot_dist(void) {
         });
 
         std::string outputFileName = output_dir + "/" + benchname + "_" + std::to_string(tmp_idx * time_period);
-        if (addr_type == 'v')
+        std::string globalOutPutFileName = global_output_dir + "/" + benchname + "_" + std::to_string(tmp_idx * time_period);
+        if (addr_type == 'v') {
             outputFileName += ".hot_dist.vout";
-        else
+            globalOutPutFileName += ".global_dist.vout";
+        } else {
             outputFileName += ".hot_dist.pout";
+            globalOutPutFileName += ".global_dist.pout";
+        }
 
         printf("output_file: %s\n", outputFileName.c_str());
 
@@ -329,6 +341,14 @@ void dump_hot_dist(void) {
         outputFile << "0x" << std::hex << hot_pages[hot_pages.size() - 1].first << " 0 " << 
             std::dec << hot_pages[hot_pages.size() - 1].second;
         outputFile.close();
+
+        printf("global_output_file: %s\n", globalOutPutFileName.c_str());
+        std::ofstream globalOutputFile(globalOutPutFileName);
+        globalOutputFile << addr_space_range << std::endl;
+        for (size_t i = 0; i < access_dist.size(); ++i) {
+            globalOutputFile << "0x" << std::hex << access_dist[i].first << " " << std::dec << access_dist[i].second << "\n";
+        }
+        globalOutputFile.close();
 
         tmp_idx += 1;
     }
