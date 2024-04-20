@@ -103,7 +103,7 @@ def get_access_freq(trace):
             cols = line.split()
             if (len(cols) < 2):
                 continue
-            access_freq.append(int(cols[1], 16))
+            access_freq.append(int(cols[1], 10))
     
     return access_freq
 
