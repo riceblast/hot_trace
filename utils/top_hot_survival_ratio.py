@@ -86,60 +86,75 @@ def init_global_env():
     global_file_time_list.sort()
     print(f"total time cnt: {period}")
 
-def dump_survival_ratio(period_idx, survival_ratio):
+def dump_survival_ratio(period_idx, survival_ratio_60_60, survival_ratio_60_80):
     # 热页lifetime信息
     df = pd.DataFrame({
-        'period_time': range(global_file_time_list[period_idx + 1], global_file_time_list[-1] + args.period, args.period),
-        'survival_ratio': survival_ratio[period_idx],
+        'period_time': range(0, global_file_time_list[-1] + args.period, args.period),
+        'survival_ratio_60_in_60': survival_ratio_60_60[period_idx],
+        'survival_ratio_60_in_80': survival_ratio_60_80[period_idx],
     })
 
-    df['survival_ratio'] = df['survival_ratio'].apply(lambda x: format(x, '.2%'))
+    df['survival_ratio_60_in_60'] = df['survival_ratio_60_in_60'].apply(lambda x: format(x, '.2%'))
+    df['survival_ratio_60_in_80'] = df['survival_ratio_60_in_80'].apply(lambda x: format(x, '.2%'))
     df.to_csv(f'{output_dir}/{args.benchname}_{global_file_time_list[period_idx]}.survival_ratio.csv')
     print(f"Save surival ratio to {output_dir}/{args.benchname}_{global_file_time_list[period_idx]}.survival_ratio.csv")
 
+def check_survive(pages_cur, pages_future):
+    survival_num = 0
+
+    cur_addr_idx = 0
+    future_addr_idx = 0
+    while (cur_addr_idx < len(pages_cur) and 
+        future_addr_idx < len(pages_future)):
+
+        cur_addr = pages_cur[cur_addr_idx]
+        future_addr = pages_future[future_addr_idx]
+
+        if (cur_addr == future_addr):
+            survival_num += 1
+
+            cur_addr_idx +=1
+            future_addr_idx += 1
+            continue
+
+        if (cur_addr > future_addr):
+            future_addr_idx += 1
+            continue
+
+        if (cur_addr < future_addr):
+            cur_addr_idx += 1
+            continue
+    
+    return survival_num
+
 # 查看某个时间点后，其所有top_hot的热页存活情况
 def monitor_survival_ratio():
-    survival_ratio = [] # [[0.5, 0.6,...], [0.1, 0.2,...], ...]
+    survival_ratio_60_80 = [] # [[0.5, 0.6,...], [0.1, 0.2,...], ...]
+    survival_ratio_60_60 = []   # 现在占据60%访存的页面，在未来同样是cover60%的页面内，能占多少比例(和自己比)
     for cur_idx in range(0, len(global_file_time_list) - 1):
-        survival_ratio.append([])
+        survival_ratio_60_60.append([])
+        survival_ratio_60_80.append([])
 
-        for future_idx in range(cur_idx + 1, len(global_file_time_list)):
+        for future_idx in range(0, len(global_file_time_list)):
             print(f'{args.benchname} {args.period} compare {global_file_time_list[cur_idx]}...{global_file_time_list[future_idx]}')
             
             # 判断cur_addr是否在future_addr出现过
-            survival_ratio[-1].append(0)
+            survival_ratio_60_80[-1].append(0)
+            survival_ratio_60_60[-1].append(0)
             survival_num = 0
-            
-            cur_addr_idx = 0
-            future_addr_idx = 0
 
             pages_60 = global_top_60_pages[global_file_time_list[cur_idx]]
+            pages_60_future = global_top_60_pages[global_file_time_list[future_idx]]
             pages_80 = global_top_80_pages[global_file_time_list[future_idx]]
-            while (cur_addr_idx < len(pages_60) and 
-                future_addr_idx < len(pages_80)):
 
-                cur_addr = pages_60[cur_addr_idx]
-                future_addr = pages_80[future_addr_idx]
+            survival_num = check_survive(pages_60, pages_60_future)
+            survival_ratio_60_60[-1][-1] = survival_num / len(global_top_60_pages[global_file_time_list[cur_idx]])
 
-                if (cur_addr == future_addr):
-                    survival_num += 1
-
-                    cur_addr_idx +=1
-                    future_addr_idx += 1
-                    continue
-
-                if (cur_addr > future_addr):
-                    future_addr_idx += 1
-                    continue
-
-                if (cur_addr < future_addr):
-                    cur_addr_idx += 1
-                    continue
-
-            survival_ratio[-1][-1] = survival_num / len(global_top_60_pages[global_file_time_list[cur_idx]])
+            survival_num = check_survive(pages_60, pages_80)
+            survival_ratio_60_80[-1][-1] = survival_num / len(global_top_60_pages[global_file_time_list[cur_idx]])
         
     for period_idx in range(0, len(global_file_time_list) - 1):
-        dump_survival_ratio(period_idx, survival_ratio)
+        dump_survival_ratio(period_idx, survival_ratio_60_60, survival_ratio_60_80)
 
 if __name__ == '__main__':
     init_global_env()
