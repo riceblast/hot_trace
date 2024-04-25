@@ -26,6 +26,7 @@ output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/Learned
 # overlap = 0
 # total = 0
 
+
 class Model:
     def __init__(self, _start_addr, _end_addr, _length, _k, _b, _bitmap):
         self.start_addr = int(_start_addr)
@@ -74,6 +75,50 @@ def traverse_and_train(list, threshold):
             else:
                 traverse_and_train(sublist, threshold - 1)
 
+    # global global_learned_segs
+    # avg_pgdiff = None
+    # prev = None
+    # current_seg = []
+    # cnt = int(0)
+    # for data in list:
+    #     if len(current_seg) == 0:
+    #         current_seg.append(data)
+    #     elif len(current_seg) == 1:
+    #         current_seg.append(data)
+    #         avg_pgdiff = float(data - prev)
+    #     else:
+    #         flag = iterate_point(data, avg_pgdiff, cnt)
+    #         if flag == True:
+    #             current_seg.append(data)
+    #         else:
+    #             global_learned_segs[-1].append(current_seg)
+    #             current_seg = []
+    #             avg_pgdiff = None
+    #     prev = data
+    #     cnt += 1
+
+
+def partition_sequence(sequence):
+    if not sequence:
+        return []
+
+    partitions = []
+    current_partition = [sequence[0]]
+
+    for i in range(1, len(sequence)):
+        diff = sequence[i] - sequence[i-1]
+        if diff != 0:
+            partitions.append(current_partition)
+            current_partition = [sequence[i]]
+        else:
+            current_partition.append(sequence[i])
+
+    partitions.append(current_partition)
+
+    return partitions
+
+
+
 # 求解线性回归，并测试模型是否在容错范围内，即正确预测的热页占比大于七成
 # 返回值: flag
 #   flag是bool类型变量：代表当前模型是否通过热页占比测试
@@ -121,7 +166,6 @@ def write_seg_to_file():
     })
 
     df.to_csv(f'{output_dir}/{args.benchname}_{global_file_time}s.learned_index_v1.segs.csv')
-
 
 
 def write_dram_to_file(data):
