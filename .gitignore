@@ -41,5 +41,7 @@ res/*
 !utils/ideal_hot_distribution.cpp
 !utils/ideal_hot_dist.sh
 !utils/Makefile
+!utils/plot_global_cdf.py
+!utils/top_hot_survival_ratio.py
 tmp/
 test_trace/
