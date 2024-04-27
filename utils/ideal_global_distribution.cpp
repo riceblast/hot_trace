@@ -287,17 +287,15 @@ void write_to_file(const std::vector<std::unordered_map<uint64_t, uint64_t>*>& p
 
         // BFS_0.global_dist.vout
         std::string output_filename = output_dir_prefix + benchname + "/" + std::to_string(period)
-            + "/" + benchname + "_" + std::to_string(idx * period) + ".global_dist";
+            + "/" + benchname + "_" + std::to_string(idx * period + time_begin) + ".global_dist";
         output_filename += (is_virt)? ".vout" : ".pout";
         printf("output file: %s\n", output_filename.c_str());
 
         std::ofstream outputFile(output_filename);
         outputFile << 0 << std::endl;
-        for (size_t i = 0; i < access_dist.size() - 1; ++i) {
-            outputFile << "0x" << std::hex << access_dist[i].first << " " << std::dec << " " << access_dist[i].second << "\n";
+        for (size_t i = 0; i < access_dist.size(); ++i) {
+            outputFile << "0x" << std::hex << access_dist[i].first << " " << std::dec << access_dist[i].second << "\n";
         }
-        outputFile << "0x" << std::hex << access_dist[access_dist.size() - 1].first << " 0 " << 
-            std::dec << access_dist[access_dist.size() - 1].second;
         outputFile.close();
     }
 }
