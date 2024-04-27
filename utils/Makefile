@@ -1,7 +1,8 @@
 CC = gcc
 CXX = g++
-CFLAGS = -Wall -O2
-CXXFLAGS = -Wall -O2
+CFLAGS = -Wall -O2 -g
+#CXXFLAGS = -Wall -O2 -g
+CXXFLAGS = -Wall -g
 
 #SRCDIR = src
 #OBJDIR = obj
@@ -11,6 +12,10 @@ BINDIR = bin
 #OBJ = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(filter %.c,$(SRC))) \\
 #      $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(filter %.cpp,$(SRC)))
 #BIN = $(BINDIR)/myapp
+
+ideal_global_distribution: ideal_global_distribution.cpp
+		mkdir -p ${BINDIR}
+		$(CXX) $(CXXFLAGS) -o ${BINDIR}/$@ $^
 
 ideal_hot_distribution: ideal_hot_distribution.cpp
 		mkdir -p ${BINDIR}
