@@ -42,6 +42,7 @@ res/*
 !utils/ideal_hot_dist.sh
 !utils/Makefile
 !utils/plot_global_cdf.py
+!utils/plot_all_Access_Freq.sh
 !utils/top_hot_survival_ratio.py
 tmp/
 test_trace/
