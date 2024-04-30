@@ -1,31 +1,17 @@
-if [ $# -lt 1 ];then
-    echo "usage: ./plot_all_CDF.sh <benchname> [v/p]"
-    exit 1
-fi
+#benchname_list=(BFS cactuBSSN deepsjeng fotonik3d GUPS mcf PR XZ)
+#type_list=('v' 'p')
+#period_list=(1 5 10)
+benchname_list=(BC PR redis)
+type_list=('v')
+period_list=(1 5 15 30)
 
-trace_dir="/home/yangxr/downloads/test_trace/hot_dist_5_15/${1}"
-suffix="hot_v_5_15.out"
-virtual=1
-if [ -n "${2}" ];then
-    if [ "${2}" == 'p' ];then
-        suffix="hot_5_15.out"
-        virtual=0
-    fi
-fi
-
-if [ ! -d $trace_dir ];then
-    echo "trace dir: ${trace_dir} not exist"
-    exit 1
-fi
-
-fileCnt=$(ls ${trace_dir} | grep "${suffix}" | wc -l)
-echo "Total ${benchname}_*.${suffix} file: ${fileCnt}"
-
-for ((i=0; i<$fileCnt; i++))
+for bench in "${benchname_list[@]}"
 do
-    if [ $virtual -eq 1 ];then
-        python3 ./plot_hot_cdf.py --type v ${1} $i
-    else
-        python3 ./plot_hot_cdf.py --type p ${1} $i
-    fi
+		for addr_type in "${type_list[@]}"
+		do
+				for period in "${period_list[@]}"
+				do
+						python3 ./plot_hot_cdf.py --type ${addr_type} --period ${period} ${bench}
+				done
+		done
 done
