@@ -44,5 +44,6 @@ res/*
 !utils/plot_global_cdf.py
 !utils/plot_all_Access_Freq.sh
 !utils/top_hot_survival_ratio.py
+!utils/ideal_global_distribution.cpp
 tmp/
 test_trace/
