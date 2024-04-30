@@ -14,61 +14,68 @@ import matplotlib.pyplot as plt
 
 # 处理命令行参数
 parser = argparse.ArgumentParser(description='Caculate the CDF plot of hot pages')
-parser.add_argument('--trace_dir', help='Directory of trace file')
-parser.add_argument('--output_dir', help='Output Directory of result')
 parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--period', default=1, type=int, help='The division period of trace')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
-parser.add_argument('num', help='Index of benhmark trace')
 
 args = parser.parse_args()
 
+global_file_time = 0 # 现在正在处理的时间数据
+trace_dir = "/home/yangxr/downloads/test_trace/hot_dist/ideal/" + args.benchname + "/" + str(args.period)
+
 if (args.type == 'v'):
-    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "CDF/VPN"
+    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/CDF/VPN"
+    trace_suffix = 'vout'
 elif (args.type == 'p'):
-    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "CDF/PPN"
-trace_dir = "/home/yangxr/downloads/test_trace/hot_dist_5_15/" + args.benchname
+    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/CDF/PPN"
+    trace_suffix = 'pout'
 
-def read_and_sort(benchname, num):
-    if (args.type == 'p'):
-        filename = trace_dir + '/' + benchname + '_' + num + '.hot_5_15.out'
-    else:
-        filename = trace_dir + '/' + benchname + '_' + num + '.hot_v_5_15.out'
-    
-    hot_pages = set()
-    with open(filename, 'r') as file:
-        for line in file:
-            page=int(line.strip(), 16)
-            hot_pages.add(page)
-    return sorted(hot_pages)
-
-def plot_hot_CDF(hot_pages, prefix):
+def plot_hot_CDF(hot_pages):
     dram_addr = range(0, len(hot_pages))
     plt.plot(hot_pages, dram_addr, '-')
     if args.type == 'p':
         plt.xlabel('Physical Address Sapce')
-        plt.title(f'Hot PPN CDF({benchname}_{num}s)')
+        plt.title(f'Hot PPN CDF({args.benchname}_{global_file_time}s)')
     else:
         plt.xlabel('Virtual Address Sapce')
-        plt.title(f'Hot VPN CDF({benchname}_{num}s)')
+        plt.title(f'Hot VPN CDF({args.benchname}_{global_file_time}s)')
     plt.ylabel('DRAM Mapping Addr')
 
-    plt.savefig(output_dir + '/' + prefix + ".png")
+    plt.savefig(output_dir + '/' + args.benchname + "_" + str(global_file_time) + ".png")
 
-    print(f"Save CDF Plot: {output_dir}/{prefix}.png")
+    print(f"Save CDF Plot: {output_dir}/{args.benchname}_{global_file_time}.png")
 
+    plt.cla()
+    plt.clf()
+    plt.close()
+
+def init_local_env(filename):
+    global global_file_time
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    base_filename = os.path.basename(filename)
+    global_file_time = int(base_filename.split('.')[0].split('_')[1])
+    print(f"processing bench page difference: {args.benchname} time: {global_file_time}")
+
+def get_hot_pages(trace):
+    if (not os.path.exists(trace_dir + "/" + trace)):
+        print(f"Err: file {trace} does no exist")
+        exit(1)
+
+    hot_pages = []
+    with open(trace_dir + "/" + trace, 'r') as t:
+        for line in t:
+            cols = line.split()
+            if (len(cols) < 3):
+                continue
+            hot_pages.append(int(cols[0], 16))
+    
+    return hot_pages
 
 if __name__ == "__main__":
-    benchname, num = args.benchname, args.num
-    if (args.trace_dir is not None):
-        trace_dir = args.trace_dir
-    if (args.output_dir is not None):
-        output_dir = args.output_dir
-
-    hot_pages = read_and_sort(benchname, num)
-    
-    if (args.type == 'p'):
-        prefix = benchname + '_' + num + 's_hot_5_15_PPN_CDF'
-    else:
-        prefix = benchname + '_' + num + 's_hot_5_15_VPN_CDF'
-    os.makedirs(output_dir, exist_ok=True)
-    plot_hot_CDF(hot_pages, prefix)
+    for trace in os.listdir(trace_dir):
+        if (trace.endswith(trace_suffix)):
+            init_local_env(trace)
+            hot_pages = get_hot_pages(trace)
+            plot_hot_CDF(hot_pages)
