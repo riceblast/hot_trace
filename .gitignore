@@ -37,5 +37,12 @@ res/*
 !utils/plot_all_PN_DIFF.sh
 !utils/plot_all_figure.sh
 !utils/constructive_linear.py
+!utils/hot_page_life_time.py
+!utils/ideal_hot_distribution.cpp
+!utils/ideal_hot_dist.sh
+!utils/Makefile
+!utils/plot_global_cdf.py
+!utils/top_hot_survival_ratio.py
+!utils/ideal_global_distribution.cpp
 tmp/
 test_trace/

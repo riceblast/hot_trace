@@ -23,76 +23,74 @@ import numpy as np
 
 # 处理命令行输入参数
 parser = argparse.ArgumentParser(description='Caculate the difference between adjacent page numbers')
-parser.add_argument('--trace_dir', help='Directory of trace file')
-parser.add_argument('--output_dir', help='Output Directory of result')
 parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--period', default=1, type=int, help='The division period of trace')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
-parser.add_argument('num', help='Index of benhmark trace')
+# parser.add_argument('num', help='Index of benhmark trace')
 
 args = parser.parse_args()
 
+global_file_time = 0 # 现在正在处理的时间数据
+trace_dir = "/home/yangxr/downloads/test_trace/hot_dist/ideal/" + args.benchname + "/" + str(args.period)
+
 if (args.type == 'v'):
-    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "PN_DIFF/VPN"
+    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/PN_DIFF/VPN"
+    trace_suffix = 'vout'
 elif (args.type == 'p'):
-    output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/" + "PN_DIFF/PPN"
-trace_dir = "/home/yangxr/downloads/test_trace/hot_dist_5_15/" + args.benchname
+    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/PN_DIFF/PPN"
+    trace_suffix = 'pout'
 
-# 读取文件并排序、去重
-def read_and_sort(benchname, num):
-    # e.g ../test_trace/hot_dist_5_15/BFS/BFS_20.hot_5_15.out
-    if (args.type == 'p'):
-        filename = trace_dir + '/' + benchname + '_' + num + '.hot_5_15.out'
-    else:
-        filename = trace_dir + '/' + benchname + '_' + num + '.hot_v_5_15.out'
+# 从文件中读取页间距差距
+def get_pn_diff(trace):
+    if (not os.path.exists(trace_dir + "/" + trace)):
+        print(f"ERR: file {trace} does not exist")
+        exit(1)
 
-    page_aligned_pas = set()
-    with open(filename, 'r') as file:
-        for line in file:
-            pa = int(line.strip(), 16)
-            page_aligned_pas.add(pa)
-    #print("DEBUG: Successfully read Addr from file ", filename)
-    return sorted(page_aligned_pas)
-
-# 计算相邻两个PA的差值
-def calculate_differences(pa_list):
-    differences = np.array([pa_list[i + 1] - pa_list[i] for i in range(len(pa_list) - 1)])
-    return differences
+    pn_list = []
+    with open(trace_dir + "/" + trace, 'r') as t:
+        for line in t:
+            cols = line.split()
+            if (len(cols) < 3 or cols[1] == 0):
+                continue
+            pn_list.append(int(cols[1]))
+    
+    return np.array(pn_list)
 
 # 画出差值图像，将y轴设置为对数坐轴
-def plot_differences(differences, prefix):
-    plt.semilogy(range(1, len(differences) + 1), differences, linewidth=0.05)   # 将y轴设置为对数坐标轴
+def plot_differences(differences):
+    plt.semilogy(range(1, len(differences) + 1), differences, 'b', linewidth=0.05)   # 将y轴设置为对数坐标轴
     #plt.plot(range(1, len(differences) + 1), differences, linewidth=0.05)
-    plt.xlabel('Index')
+    plt.xlabel('Addr')
     plt.ylabel('Difference')
     if args.type == 'p':
-        plt.title(f'Differences between Adjacent Physical Pages({benchname}_{num}s)')
+        plt.title(f'Differences between Adjacent Physical Pages({args.benchname}_{global_file_time}s)')
     else:
-        plt.title(f'Differences between Adjacent Virtual Pages({benchname}_{num}s)')
+        plt.title(f'Differences between Adjacent Virtual Pages({args.benchname}_{global_file_time}s)')
 
     plt.grid(True, which="both", ls="--")  # 添加网格线
-    #plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: hex(int(x))[2:]))  # 设置纵坐标为16进制
 
-    plt.savefig(output_dir + '/' + prefix + "_logy.png")
-    #plt.show()
+    plt.savefig(output_dir + '/' + args.benchname + "_" + str(global_file_time) + "_logy.png")
+    #plot.show()
 
-    print(f"Save File: {output_dir}/{prefix}_logy.png")
+    print(f"Save File: {output_dir}/{args.benchname}_{global_file_time}_logy.png")
+
+    plt.cla()
+    plt.clf()
+    plt.close()
+
+def init_local_env(filename):
+    global global_file_time
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    base_filename = os.path.basename(filename)
+    global_file_time = int(base_filename.split('.')[0].split('_')[1])
+    print(f"processing bench page difference: {args.benchname} time: {global_file_time}")
 
 if __name__ == "__main__":
-    benchname, num = args.benchname, args.num
-    if (args.trace_dir is not None):
-        trace_dir = args.trace_dir
-    if (args.output_dir is not None):
-        output_dir = args.output_dir
-
-    pa_list = read_and_sort(benchname, num)
-    differences = calculate_differences(pa_list)
-
-    if (args.type == 'p'):
-        prefix = benchname + '_' + num + 's_hot_5_15_pa_diff'
-    else:
-        prefix = benchname + '_' + num + 's_hot_5_15_va_diff'
-    os.makedirs(output_dir, exist_ok=True)
-    # 将差值结果保存
-    np.savetxt(output_dir + '/' + prefix + '.out', differences, fmt='%d')
-    # 根据差值信息，画图并保存
-    plot_differences(differences, prefix)
+    for trace in os.listdir(trace_dir):
+        if (trace.endswith(trace_suffix)):
+            init_local_env(trace)
+            pn_diff = get_pn_diff(trace)
+            np.savetxt(output_dir + '/' + args.benchname + "_" + str(global_file_time) + 's.out', pn_diff, fmt='%d')
+            plot_differences(pn_diff)
