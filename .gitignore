@@ -45,5 +45,7 @@ res/*
 !utils/plot_all_Access_Freq.sh
 !utils/top_hot_survival_ratio.py
 !utils/ideal_global_distribution.cpp
+!utils/hot_delta_over_time.py
+!utils/plot_all_hot_delta.sh
 tmp/
 test_trace/
