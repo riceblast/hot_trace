@@ -6,23 +6,44 @@
 #include <algorithm>
 #include <filesystem>
 #include <sstream>
+#include <queue>
 
-#define PAGE_SIZE 4096 // 定义虚拟页面大小
-const int FILE_PERIOD = 30;   // 每FILE_PERIOD这么多个文件就处理一次
+/*
+ * input file name: benchmark_n.out
+ * Read all these files in and get the hot distribution;
+ * Count the past 6s page access distribution, and mark the 
+ * top 5%, 15%, 25% access freqency pages
+ */
+
+#define PAGE_SIZE 4096
+//const int FILE_PERIOD = 30000;
+//const uint64_t LINENUM_PER_SECOND = 10000000;   // every LINENUM_PER_SECOND line trace coresponding to 1s
+const int HOT_WINDOW = 5;   // the count window of hot distribution is HOT_WINDOW seconds
+const int SLIDING_STEP = 1;   // every SLIDING_STEP seconds will output hot distribution
 
 namespace fs = std::filesystem;
 
 unsigned long long addressToPageNumber(const std::string& address) {
-    unsigned long long addr = std::stoull(address, nullptr, 16);
+    unsigned long long addr = 0;
+    try {
+        addr = std::stoull(address, nullptr, 16);
+    } catch(const std::invalid_argument& ia) {
+        std::cerr << "Invalid argument exception when calling stoull" << std::endl;
+        std::cerr << "Invalid argument: " << address << std::endl;
+        exit(1);
+    } catch (const std::out_of_range& oor) {
+        std::cerr << "The number is out of range" << std::endl;
+        std::cerr << "Out range number: " << address << std::endl;
+    }
     return addr / PAGE_SIZE;
 }
 
 void outputDistribution(const std::unordered_map<unsigned long long, unsigned>& pageAccessCount, const std::string& filePrefix, 
     int fileBatchIndex, const std::string& outputDir) {
-    // 排序、设置优先级并
+    
     std::vector<std::pair<unsigned long long, unsigned>> pages(pageAccessCount.begin(), pageAccessCount.end());
     std::sort(pages.begin(), pages.end(), [](const auto& a, const auto& b) {
-        return a.second > b.second; // 按访问次数比较
+        return a.second > b.second; // compared by access count, Descending
     });
     
     size_t total = pages.size();
@@ -38,7 +59,7 @@ void outputDistribution(const std::unordered_map<unsigned long long, unsigned>& 
         return a.first < b.first;
     });
 
-    std::string outputFileName = outputDir + filePrefix + "_hot_distribution_" + std::to_string(fileBatchIndex) + ".out";
+    std::string outputFileName = outputDir + filePrefix + "_" + std::to_string(fileBatchIndex) + ".hot_dist.pout";
     std::ofstream outputFile(outputFileName);
     outputFile << total << std::endl;
     for (size_t i = 0; i < pages.size(); ++i) {
@@ -48,65 +69,93 @@ void outputDistribution(const std::unordered_map<unsigned long long, unsigned>& 
 }
 
 int main(int argc, char* argv[]) {
-    // 确保命令行参数数量正确
+    // mkdir sure the command line has the right number
     if (argc != 5 || std::string(argv[1]) != "-o") {
-        std::cerr << "Usage: " << argv[0] << " -o <output_directory> <directory> <file_prefix>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " -o <output_directory> <directory> <file_prefix> <>" << std::endl;
         return 1;
     }
 
-    std::string outputDir = argv[2]; // 获取输出目录路径
-    std::string dirPath = argv[3]; // 获取目录路径
-    std::string filePrefix = argv[4]; // 获取文件前缀
+    std::string outputDir = argv[2]; // get output dir
+    std::string dirPath = argv[3]; // get input dir
+    std::string filePrefix = argv[4]; // get bench_name/filePrefix
 
-    // 确保输出目录以斜杠结束
+    // make sure the output dir is end with '/'
     if (!outputDir.empty() && outputDir.back() != fs::path::preferred_separator) {
         outputDir += fs::path::preferred_separator;
     }
 
-    std::unordered_map<unsigned long long, unsigned> pageAccessCount;
-    int fileCount = 0;
-    int fileBatchIndex = 0; // 用于追踪输出文件的编号
+    std::queue<std::unordered_map<unsigned long long, unsigned>> SlidingPageAccessCounts;
+    std::unordered_map<unsigned long long, unsigned> TotalPageAccessCounts;
 
-    // 计算符合filePrefix开头的文件总数
-    int fileTotalCount = 0; // 用于存储目录中符合条件的文件总数
+    int lastFileIdx = -1;    // used to count step
+    int fileBatchIndex = 0; // track the index number of output file
+
+    // count the number of target files
+    // inputfile: bench_n.out
+    int fileTotalCount = 0;
     for (const auto& entry : fs::directory_iterator(dirPath)) {
         std::string filePath = entry.path().filename().string();
         if (filePath.find(filePrefix) == 0) {
             fileTotalCount++;
         }
     }
-    std::cerr << "共" << fileTotalCount << "个目标文件" << std::endl;
+    std::cerr << "Total Files: " << fileTotalCount << std::endl;
 
     int processedFileCount = 0;
     while (processedFileCount < fileTotalCount) {
         std::string filePath = dirPath + "/" + filePrefix + "_" + 
-            std::to_string(processedFileCount) + ".filter.trace";
+            std::to_string(processedFileCount) + ".out";
         if (fs::exists(filePath)) {
             std::ifstream file(filePath);
             std::string line;
 
             processedFileCount++;
-            fileCount++;
 
+            // count page access num for current file
+            std::unordered_map<unsigned long long, unsigned> pageAccessCountForCurrentFile;
+
+            // process current file
             while (getline(file, line)) {
                 std::istringstream iss(line);
                 char opType;
-                std::string address;
-                if (iss >> opType >> address) {
-                    unsigned long long pageNumber = addressToPageNumber(address);
-                    pageAccessCount[pageNumber]++;
+                std::string virtual_address, physical_address;
+                if (iss >> opType >> virtual_address >> physical_address) {
+                    unsigned long long pageNumber = addressToPageNumber(physical_address);
+                    pageAccessCountForCurrentFile[pageNumber]++;
                 }
             }
 
-            // 每30个文件统计一次
-            if (fileCount == FILE_PERIOD || processedFileCount == fileTotalCount) {
-                std::cerr << "fileIdx: " << processedFileCount << ", period: " << fileBatchIndex << " process done!" << std::endl;
-                outputDistribution(pageAccessCount, filePrefix, fileBatchIndex++, outputDir);
-                pageAccessCount.clear(); // 重置页面访问计数器
-                fileCount = 0; // 重置文件计数器
+            // if current window is full, remove the oldest file
+            if (SlidingPageAccessCounts.size() == HOT_WINDOW) {
+                auto& oldestPageAccessCount = SlidingPageAccessCounts.front();
+                for (const auto& page : oldestPageAccessCount) {
+                    TotalPageAccessCounts[page.first] -= page.second;
+
+                    if (TotalPageAccessCounts[page.first] < 0) {
+                        std::cerr << "Error sliding, File: " << filePath << " , PPN: " << page.first << std::endl;
+                    }
+
+                    if (TotalPageAccessCounts[page.first] == 0) {
+                        TotalPageAccessCounts.erase(page.first);
+                    }                    
+                }
+                SlidingPageAccessCounts.pop();
+            }  
+            
+            // add current file to sidling window
+            SlidingPageAccessCounts.push(pageAccessCountForCurrentFile);
+            for (const auto& page : pageAccessCountForCurrentFile) {
+                TotalPageAccessCounts[page.first] += page.second;
+            }
+
+            if (SlidingPageAccessCounts.size() >= HOT_WINDOW &&
+                (lastFileIdx == -1 || processedFileCount - lastFileIdx >= SLIDING_STEP)) {
+                lastFileIdx = processedFileCount;
+                std::cerr << "second: " << processedFileCount << std::endl;
+                outputDistribution(TotalPageAccessCounts, filePrefix, fileBatchIndex++, outputDir);
             }
         } else {
-            std::cerr << "文件: " << filePath << " 不存在" << std::endl;
+            std::cerr << "File: " << filePath << " does not exist" << std::endl;
         }
     }
 
