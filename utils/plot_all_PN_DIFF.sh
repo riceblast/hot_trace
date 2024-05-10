@@ -1,6 +1,9 @@
-benchname_list=(BFS cactuBSSN deepsjeng fotonik3d GUPS mcf PR XZ)
-type_list=('v' 'p')
-period_list=(1 5 10)
+#benchname_list=(BFS cactuBSSN deepsjeng fotonik3d GUPS mcf PR XZ)
+#type_list=('v' 'p')
+#period_list=(1 5 10)
+benchname_list=(BC PR redis)
+type_list=('v')
+period_list=(1 5 15 30)
 
 for bench in "${benchname_list[@]}"
 do
