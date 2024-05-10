@@ -130,7 +130,7 @@ def write_dram_to_file(filename, data):
                 file.write("%#x   %-9d\n" % (int(data[i]), simDram[i]))
 
 
-filename = '../test_trace/hot_dist_5_15/BFS/BFS_15.hot_5_15.out'
+filename = '/home/yangxr/downloads/test_trace/hot_dist_5_15/BFS/BFS_15.hot_5_15.out'
 conv = lambda a: int(a, 16)
 data = np.loadtxt(filename, converters={0: conv})
 traverse_and_train(data, threshold=global_threshold)

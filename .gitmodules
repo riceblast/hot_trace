@@ -1,6 +1,6 @@
 [submodule "valgrind"]
 	path = valgrind
-	url = https://github.com/riceblast/valgrind
+	url = git@github.com:riceblast/valgrind.git
 [submodule "index_algorithm/PGM_Index"]
 	path = index_algorithm/PGM_Index
-	url = https://github.com/JackYuCN/PGM-index
+	url = git@github.com:JackYuCN/PGM-index.git
