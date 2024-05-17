@@ -17,18 +17,20 @@ benchname = args.benchname
 
 cxl_layout_file = "/home/yangxr/downloads/test_trace/compact_addr_space/compute/" + benchname + "/" + benchname
 trace_dir = "/home/yangxr/downloads/test_trace/raw_data/compute/" + benchname + "/"
-global_dist_dir = ""
+global_dist_dir = "/home/yangxr/downloads/test_trace/global_dist/compute/" + benchname + "/1/"
 output_dir = "/home/yangxr/downloads/test_trace/res/compute/" + benchname + "/simulate/" 
 if (args.type == 'v'):
     cxl_layout_file += ".vout"
 elif (args.type == 'p'):
     cxl_layout_file += ".pout"
 
-NUM_REGIONS = 512
+NUM_REGIONS = 1024
+numerator_list = [1, 25, 75, 235, 405, 503, 590, 625, 731, 849, 985, 1000]
+demoniator = 503   # 第一个大于500的质数
 
 # Learned Index映射的seg
 class MappingSeg:
-    # (a*x + b) % m
+    # a * x % m + b
     def __init__(self, a, b, m):
         self.a = a
         self.b = b
@@ -37,10 +39,9 @@ class MappingSeg:
 # CXL region内的sub region,映射到DRAM region
 class SubRegionMapping:
     # 左闭右开
-    def __init__(self, start, end, dram_region_idx, mapping_seg):
+    def __init__(self, start, end, mapping_seg):
         self.start = start
         self.end = end
-        self.dram_region_idx = dram_region_idx
         self.mapping_seg = mapping_seg
 
     def mapping_func(self, page_number):
@@ -51,8 +52,11 @@ class RegionMapping:
     def __init__(self):
         self.subregions = []
 
-    def add_subregion(self, start, end, dram_region_idx, mapping_seg):
-        self.subregions.append(SubRegionMapping(start, end, dram_region_idx, mapping_seg))
+    def add_subregion(self, start, end, mapping_seg):
+        self.subregions.append(SubRegionMapping(start, end, mapping_seg))
+    
+    def clear(self):
+        self.subregions = []
 
 class HeterogeneousMemorySystem:
     def __init__(self, cxl_layout_file, trace_dir):
@@ -72,10 +76,11 @@ class HeterogeneousMemorySystem:
             self.dram_capacity = ((self.cxl_capacity // self.capacity_ratio + 4095) // 4096) * 4096
 
         self.dram_cache = np.full((self.dram_capacity), -1, dtype=int)  # -1 表示空位
-        self.dram_saturating = np.zeros((self.dram_capacity), dtype=int)  # 饱和计数器，3位，初始化为4
-        self.dram_regions = [-1] * NUM_REGIONS  # 模拟简单 DRAM 缓存，初始化为未使用状态，这是一个反向映射表DRAM region -> CXL region idx
-        self.dram_region_size = (self.dram_capacity // NUM_REGIONS)
+        self.dram_saturating = np.zeros((self.dram_capacity), dtype=int)  # 饱和计数器，2位，初始化为2
+        #self.dram_regions = [-1] * NUM_REGIONS  # 模拟简单 DRAM 缓存，初始化为未使用状态，这是一个反向映射表DRAM region -> CXL region idx
+        #self.dram_region_size = (self.dram_capacity // NUM_REGIONS)
         self.trace_dir = trace_dir
+        self.global_dist_dir = global_dist_dir
         
         # 初始化统计数据
         self.page_replacements = 0  # 用于统计页面替换的次数
@@ -106,7 +111,7 @@ class HeterogeneousMemorySystem:
         seg = MappingSeg(1 / self.capacity_ratio, 0, 1) 
         for region_idx in range(0, NUM_REGIONS):
             self.cxl_regions[region_idx].add_subregion(region_idx * self.cxl_region_size, (region_idx + 1) * self.cxl_region_size,
-                region_idx, seg)
+                seg)
 
     def find_dram_addr(self, page_number):
         # 判断addr对应的CXL region
@@ -115,10 +120,10 @@ class HeterogeneousMemorySystem:
             return -1
         
         sub_region_idx = 0
-        for sub_region in self.cxl_regions[cxl_region_idx].subregions:
-            if (page_number >= sub_region.start and page_number < sub_region.end):
-                break
-            sub_region_idx += 1
+        # for sub_region in self.cxl_regions[cxl_region_idx].subregions:
+        #     if (page_number >= sub_region.start and page_number < sub_region.end):
+        #         break
+        #     sub_region_idx += 1
         
         target_dram_addr = self.cxl_regions[cxl_region_idx].subregions[sub_region_idx].mapping_func(page_number)
 
@@ -127,7 +132,7 @@ class HeterogeneousMemorySystem:
 
     # 处理cache hit的函数
     def cache_hit(self, target_dram_addr, page_number):
-        if self.dram_saturating[target_dram_addr] < 8:
+        if self.dram_saturating[target_dram_addr] < 3:
             self.dram_saturating[target_dram_addr] += 1
 
         self.total_hits += 1
@@ -135,9 +140,9 @@ class HeterogeneousMemorySystem:
     def cache_miss(self, target_dram_addr, page_number):
         replace = False
 
-        if (self.dram_saturating[target_dram_addr] == 0 or self.dram_saturating[target_dram_addr] == 1):
+        if (self.dram_saturating[target_dram_addr] == 0):
             self.dram_cache[target_dram_addr] = page_number
-            self.dram_saturating[target_dram_addr] = 4
+            self.dram_saturating[target_dram_addr] = 2
             replace = True
         else:
             self.dram_saturating[target_dram_addr] -= 1
@@ -186,6 +191,73 @@ class HeterogeneousMemorySystem:
 
         return local_hits, local_misses, local_replacements
 
+    def train_index(self, region_idx, hot_lists):
+        candidate_numerator = -1
+        min_err_num = len(hot_lists)
+        m = len(hot_lists)
+        map_cnt = []    # 负责记录每个target pos被多少个cache block映射
+        for _ in range(0, len(hot_lists)):
+            map_cnt.append(0)
+        
+        for numerator in numerator_list:
+            err_num = 0
+
+            for idx in range(0, len(hot_lists)):
+                map_cnt[idx] = 0
+            
+            for addr in hot_lists:
+                target_addr = (addr * numerator // demoniator ) % m
+                map_cnt[target_addr] += 1
+                if (map_cnt[target_addr] > 1):
+                    err_num += 1
+            
+            if(err_num < min_err_num):
+                min_err_num = err_num
+                candidate_numerator = numerator
+
+        return candidate_numerator, min_err_num
+
+        # 更新cxl_region
+
+    # 每次都更新全局的Index
+    def update_index(self):
+        addr_idx = 0
+        last_end = 0
+        for region_idx in range(0, NUM_REGIONS):
+            self.cxl_regions[region_idx].clear()
+
+            if (addr_idx >= len(self.hot_dist)):
+                continue
+
+            hot_lists = []
+            hot_addr = self.hot_dist[addr_idx]
+            while(hot_addr >= region_idx * self.cxl_region_size and hot_addr < (region_idx + 1) * self.cxl_region_size and 
+                addr_idx < len(self.hot_dist)):
+                hot_lists.append(hot_addr)
+                addr_idx += 1
+                if (addr_idx >= len(self.hot_dist)):
+                    break
+                hot_addr = self.hot_dist[addr_idx]
+            
+            if (len(hot_lists) == 0 or addr_idx >= len(self.hot_dist)):
+                continue
+
+            numerator, err_num = self.train_index(region_idx, hot_lists)
+
+            # if (region_idx == 0):
+            #     start = 0
+            # else:
+            #     start = self.cxl_regions[region_idx - 1].subregions[0].end
+            start = last_end
+            
+            seg = MappingSeg(a = numerator / demoniator, b = start, m = len(hot_lists))
+            self.cxl_regions[region_idx].add_subregion(start, start + len(hot_lists), seg)
+
+            last_end = start + len(hot_lists)
+
+        for idx in range(0, self.dram_capacity):
+            self.dram_cache[idx] = -1
+
     def simulate_access(self):
         # 确保输出目录存在
         os.makedirs(output_dir, exist_ok=True)
@@ -218,6 +290,20 @@ class HeterogeneousMemorySystem:
 
                 with open(output_file_path, 'a') as out_file:
                     out_file.write(f"{file_time}, {hit_ratio:.2f}, {miss_ratio:.2f}, {replacements}, {replace_ratio}\n")
+
+                # 利用当前的信息训练接下来的Index
+                conv = lambda a: int(a, 16)
+                #conv = lambda a: self.cxl_mapping[a]
+                initial_global_dist = np.loadtxt(os.path.join(self.global_dist_dir, f"{benchname}_{file_time}.global_dist.vout"), converters={0: conv},skiprows=1, usecols=(0), dtype = int)
+                self.global_dist = [self.cxl_mapping[entry] for entry in initial_global_dist]
+                print(f"Reading global dist: {benchname}_{file_time}.global_dist.vout")
+                
+                # 利用global_dist抓取热页
+                self.hot_dist = self.global_dist[:self.dram_capacity]
+                self.hot_dist.sort()
+
+                # 更新Learned Index构建
+                self.update_index()
         
         total_accesses = self.total_hits + self.total_misses
         total_hit_rate = self.total_hits / total_accesses if total_accesses else 0

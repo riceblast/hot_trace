@@ -17,7 +17,6 @@ benchname = args.benchname
 
 cxl_layout_file = "/home/yangxr/downloads/test_trace/compact_addr_space/compute/" + benchname + "/" + benchname
 trace_dir = "/home/yangxr/downloads/test_trace/raw_data/compute/" + benchname + "/"
-global_dist_dir = ""
 output_dir = "/home/yangxr/downloads/test_trace/res/compute/" + benchname + "/simulate/" 
 if (args.type == 'v'):
     cxl_layout_file += ".vout"
@@ -103,7 +102,7 @@ class HeterogeneousMemorySystem:
                 self.cxl_mapping[page_number] = index
 
     def init_learned_index(self):
-        seg = MappingSeg(1 / self.capacity_ratio, 0, 1) 
+        seg = MappingSeg(1 / self.capacity_ratio, 0, 1)
         for region_idx in range(0, NUM_REGIONS):
             self.cxl_regions[region_idx].add_subregion(region_idx * self.cxl_region_size, (region_idx + 1) * self.cxl_region_size,
                 region_idx, seg)
@@ -189,7 +188,7 @@ class HeterogeneousMemorySystem:
     def simulate_access(self):
         # 确保输出目录存在
         os.makedirs(output_dir, exist_ok=True)
-        output_filename = f'rational_mod_{self.dram_capacity * 4 // 1024}MB.csv'
+        output_filename = f'region_devision_{self.dram_capacity * 4 // 1024}MB.csv'
         output_file_path = os.path.join(output_dir, output_filename)
 
         # 预先写入文件头
