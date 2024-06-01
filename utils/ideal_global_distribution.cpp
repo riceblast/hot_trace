@@ -199,7 +199,7 @@ void resize_trace_container(std::vector<std::unordered_map<uint64_t, uint64_t>*>
 }
 
 void init_time_list_queue(int time_begin) {
-    int time_bound = (time_begin + least_common_multiple) < trace_num? least_common_multiple : trace_num - time_begin;
+    int time_bound = (time_begin + least_common_multiple) < trace_num? time_begin + least_common_multiple : trace_num;
 
     while (!file_time_list.empty()) 
         file_time_list.pop();
