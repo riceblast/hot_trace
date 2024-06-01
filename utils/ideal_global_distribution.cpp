@@ -15,6 +15,8 @@
 #include <error.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <thread>
+#include <mutex>
 
 /*
  * 简介：
@@ -29,10 +31,14 @@ int trace_num = 0; // 所有trace文件的数量
 int least_common_multiple = 0;  // 多个period的最小公倍数
 
 std::string benchname;
-std::string input_dir = "/data/home/yxr/downloads/test_trace/raw/roi/1_thr/";
-std::string output_dir_prefix = "/data/home/yxr/downloads/test_trace/global_dist/roi/1_thr/";
+std::string input_dir = "/home/yxr/downloads/test_trace/raw_data/roi/";
+std::string output_dir_prefix = "/home/yxr/downloads/test_trace/global_dist/roi/";
 
+int max_thread_cnt = 12;
+std::mutex mtx;
 std::vector<int> periods;   // 记录想要所有输出的period序列，形如：1,2,3,4,5
+std::queue<int> file_time_list; // 待处理的文件时间列表，共多线程处理
+std::vector<std::thread> threads;   // 用于读取文件作初步处理的多线程
 std::vector<std::unordered_map<uint64_t, uint64_t>*> traces_vir; // 处理所有raw_data读入的trace，pn -> access_freq
 std::vector<std::unordered_map<uint64_t, uint64_t>*> traces_phy; // 处理所有raw_data读入的trace，pn -> access_freq
 std::vector<std::unordered_map<uint64_t, uint64_t>*> period_traces_vir; // 按照time_period处理traces，pn -> access_freq
@@ -74,7 +80,7 @@ void parse_options(int argc, char* argv[])
         int c = 0;
         int option_index = 0;
         static struct option long_options[] = {
-            {"period", required_argument, 0, 0},
+            {"periods", required_argument, 0, 0},
             {0, 0, 0, 0}
         };
 
@@ -151,7 +157,7 @@ uint64_t lcm_of_periods(const std::vector<int>& elements) {
 
 void create_output_dir(void) {
     mkdir(output_dir_prefix.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-    std::string global_output_dir = output_dir_prefix + benchname;
+    std::string global_output_dir = output_dir_prefix + "/" + benchname;
     int ret = mkdir(global_output_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     printf("global_output_dir: %s\n", global_output_dir.c_str());
     printf("Error opening file: %s\n", strerror(errno));
@@ -192,28 +198,49 @@ void resize_trace_container(std::vector<std::unordered_map<uint64_t, uint64_t>*>
     }
 }
 
+void init_time_list_queue(int time_begin) {
+    int time_bound = (time_begin + least_common_multiple) < trace_num? least_common_multiple : trace_num - time_begin;
+
+    while (!file_time_list.empty()) 
+        file_time_list.pop();
+
+    for (int idx = time_begin; idx < time_bound; idx++) {
+        file_time_list.push(idx);
+    }
+}
+
 void init_local_env(int time_begin)
 {
     resize_trace_container(traces_vir, time_begin);
     resize_trace_container(traces_phy, time_begin);
+    init_time_list_queue(time_begin);
 }
 
-// 读入所有trace，并计算acces cnt
-void get_trace(int time_begin) 
-{    
-    int time_bound = (time_begin + least_common_multiple) < trace_num? time_begin + least_common_multiple : trace_num;
-    for (int time = time_begin; time < time_bound; time++) {
+void _get_access_freq(int time_begin)
+{
+    while(true) {
+
+        int time_idx = -1;
+
+        mtx.lock();
+        if (file_time_list.empty())
+            return;
+
+        time_idx = file_time_list.front();
+        file_time_list.pop();
+        mtx.unlock();
+
         std::string filePath = input_dir + "/" + benchname + "_" + 
-            std::to_string(time) + ".out";
+            std::to_string(time_idx) + ".out";
 
         if (fs::exists(filePath)) {
-            printf("Reading %s\n", (benchname + "_" + std::to_string(time) + ".out").c_str());
+            printf("Reading %s\n", (benchname + "_" + std::to_string(time_idx) + ".out").c_str());
 
             std::ifstream file(filePath);
             std::string line;
 
-            std::unordered_map<uint64_t, uint64_t>* VPN_freq = traces_vir[time - time_begin];
-            std::unordered_map<uint64_t, uint64_t>* PPN_freq = traces_phy[time - time_begin];
+            std::unordered_map<uint64_t, uint64_t>* VPN_freq = traces_vir[time_idx - time_begin];
+            std::unordered_map<uint64_t, uint64_t>* PPN_freq = traces_phy[time_idx - time_begin];
             while(getline(file, line)) {
                 std::istringstream iss(line);
                 char opType;
@@ -238,6 +265,21 @@ void get_trace(int time_begin)
         } else {
             std::cerr << "File: " << filePath << " does not exist" << std::endl;
         }
+    }
+}
+
+// 读入所有trace，并计算acces cnt
+void get_trace(int time_begin) 
+{    
+    int time_bound = (time_begin + least_common_multiple) < trace_num? time_begin + least_common_multiple : trace_num;
+    printf("准备多线程读取trace并作基础统计, %d线程, %d -> %d\n", max_thread_cnt, time_begin, time_bound);
+
+    for (int i = 0; i < max_thread_cnt; i++)
+        threads.emplace_back(_get_access_freq, time_begin);
+
+    // 等待所有线程完成
+    for (auto& th : threads) {
+        th.join();
     }
 }
 
