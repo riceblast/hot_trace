@@ -31,8 +31,8 @@ int trace_num = 0; // 所有trace文件的数量
 int least_common_multiple = 0;  // 多个period的最小公倍数
 
 std::string benchname;
-std::string input_dir = "/home/yxr/downloads/test_trace/raw_data/roi/";
-std::string output_dir_prefix = "/home/yxr/downloads/test_trace/global_dist/roi/";
+std::string input_dir = "/data/home/yxr/downloads/test_trace/raw_data/roi/";
+std::string output_dir_prefix = "/data/home/yxr/downloads/test_trace/global_dist/roi/";
 
 int max_thread_cnt = 12;
 std::mutex mtx;
@@ -223,8 +223,10 @@ void _get_access_freq(int time_begin)
         int time_idx = -1;
 
         mtx.lock();
-        if (file_time_list.empty())
+        if (file_time_list.empty()) {
+            mtx.unlock();
             return;
+        }
 
         time_idx = file_time_list.front();
         file_time_list.pop();
@@ -281,6 +283,8 @@ void get_trace(int time_begin)
     for (auto& th : threads) {
         th.join();
     }
+
+    printf("当前阶段读取完毕\n");
 }
 
 void clear_period_container(std::vector<std::unordered_map<uint64_t, uint64_t>*>& period_traces) {
