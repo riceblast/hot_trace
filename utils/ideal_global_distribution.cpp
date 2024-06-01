@@ -276,6 +276,7 @@ void get_trace(int time_begin)
     int time_bound = (time_begin + least_common_multiple) < trace_num? time_begin + least_common_multiple : trace_num;
     printf("准备多线程读取trace并作基础统计, %d线程, %d -> %d\n", max_thread_cnt, time_begin, time_bound);
 
+    threads.clear();
     for (int i = 0; i < max_thread_cnt; i++)
         threads.emplace_back(_get_access_freq, time_begin);
 
@@ -355,8 +356,8 @@ void dump_global_dist(int time_begin)
         get_global_dist(traces_vir, period_traces_vir, period);
         write_to_file(period_traces_vir, time_begin, period, true);
 
-        get_global_dist(traces_phy, period_traces_phy, period);
-        write_to_file(period_traces_phy, time_begin, period, false);
+        //get_global_dist(traces_phy, period_traces_phy, period);
+        //write_to_file(period_traces_phy, time_begin, period, false);
     }
 }
 
