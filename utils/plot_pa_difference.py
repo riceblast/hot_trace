@@ -23,7 +23,7 @@ import numpy as np
 
 # 处理命令行输入参数
 parser = argparse.ArgumentParser(description='Caculate the difference between adjacent page numbers')
-parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--type', choices=['v', 'p', 'm'], default='v', help='Trace type: virtual addr(v)/physical addr(p)/mapped virtual addr')
 parser.add_argument('--period', default=1, type=int, help='The division period of trace')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
 # parser.add_argument('num', help='Index of benhmark trace')
@@ -31,14 +31,22 @@ parser.add_argument('benchname', help='Target benchmark trace used to get page d
 args = parser.parse_args()
 
 global_file_time = 0 # 现在正在处理的时间数据
-trace_dir = "/home/yangxr/downloads/test_trace/hot_dist/ideal/" + args.benchname + "/" + str(args.period)
+hot_type_list = ['top_40', 'top_60', 'top_80']
+trace_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Zipfan_Hot_Dist"
+output_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/PN_DIFF"
+trace_dir = ''
+output_dir = ''
 
 if (args.type == 'v'):
-    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/PN_DIFF/VPN"
-    trace_suffix = 'vout'
+    trace_prefix += "/VPN"
+    output_prefix += "/VPN"
 elif (args.type == 'p'):
-    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/PN_DIFF/PPN"
-    trace_suffix = 'pout'
+    trace_prefix += "/PPN"
+    output_prefix += "/PPN"
+elif (args.type == 'i'):
+    trace_prefix += "/MPN"
+    output_prefix += "/MPN"
+
 
 # 从文件中读取页间距差距
 def get_pn_diff(trace):
@@ -64,8 +72,10 @@ def plot_differences(differences):
     plt.ylabel('Difference')
     if args.type == 'p':
         plt.title(f'Differences between Adjacent Physical Pages({args.benchname}_{global_file_time}s)')
-    else:
+    elif args.type == 'v':
         plt.title(f'Differences between Adjacent Virtual Pages({args.benchname}_{global_file_time}s)')
+    elif args.type == 'm':
+        plt.title(f'Differences between Adjacent Mapped Virtual Pages({args.benchname}_{global_file_time}s)')
 
     plt.grid(True, which="both", ls="--")  # 添加网格线
 
@@ -78,19 +88,24 @@ def plot_differences(differences):
     plt.clf()
     plt.close()
 
-def init_local_env(filename):
+def init_local_env(filename, hot_type):
     global global_file_time
+    global output_dir
+    global trace_dir
 
+    output_dir = output_prefix + "/" + hot_type
+    trace_dir = trace_prefix + "/" + hot_type
     os.makedirs(output_dir, exist_ok=True)
 
     base_filename = os.path.basename(filename)
     global_file_time = int(base_filename.split('.')[0].split('_')[1])
-    print(f"processing bench page difference: {args.benchname} time: {global_file_time}")
+    print(f"processing bench page difference: {args.benchname} hot_type: {hot_type} time: {global_file_time}")
 
 if __name__ == "__main__":
-    for trace in os.listdir(trace_dir):
-        if (trace.endswith(trace_suffix)):
-            init_local_env(trace)
-            pn_diff = get_pn_diff(trace)
-            np.savetxt(output_dir + '/' + args.benchname + "_" + str(global_file_time) + 's.out', pn_diff, fmt='%d')
-            plot_differences(pn_diff)
+    for hot_type in hot_type_list:
+        for trace in os.listdir(trace_prefix + "/" + hot_type):
+            if (trace.endswith(hot_type)):
+                init_local_env(trace, hot_type)
+                pn_diff = get_pn_diff(trace)
+                np.savetxt(output_dir+ '/' + args.benchname + "_" + str(global_file_time) + 's.out', pn_diff, fmt='%d')
+                plot_differences(pn_diff)

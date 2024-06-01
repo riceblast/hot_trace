@@ -22,13 +22,13 @@ parser.add_argument('benchname', help='Target benchmark trace used to get page d
 args = parser.parse_args()
 
 global_file_time = 0 # 现在正在处理的时间数据
-trace_dir = "/home/yangxr/downloads/test_trace/global_dist/ideal/" + args.benchname + "/" + str(args.period)
+trace_dir = "/home/yangxr/downloads/test_trace/global_dist/roi/1_thr/" + args.benchname + "/" + str(args.period)
 
 if (args.type == 'v'):
-    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/Access_Freq/VPN"
+    output_dir="/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Access_Freq/VPN"
     trace_suffix = 'vout'
 elif (args.type == 'p'):
-    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/Access_Freq/PPN"
+    output_dir="/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Access_Freq/PPN"
     trace_suffix = 'pout'
 
 def plot_access_freq(access_freq):

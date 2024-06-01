@@ -21,14 +21,21 @@ parser.add_argument('benchname', help='Target benchmark trace used to get page d
 args = parser.parse_args()
 
 global_file_time = 0 # 现在正在处理的时间数据
-trace_dir = "/home/yangxr/downloads/test_trace/hot_dist/ideal/" + args.benchname + "/" + str(args.period)
+hot_type_list = ['top_40', 'top_60', 'top_80']
+trace_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Zipfan_Hot_Dist"
+output_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/CDF"
+trace_dir = ''
+output_dir = ''
 
 if (args.type == 'v'):
-    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/CDF/VPN"
-    trace_suffix = 'vout'
+    trace_prefix += "/VPN"
+    output_prefix += "/VPN"
 elif (args.type == 'p'):
-    output_dir="/home/yangxr/downloads/test_trace/res/ideal/" + args.benchname + "/" + str(args.period) + "/CDF/PPN"
-    trace_suffix = 'pout'
+    trace_prefix += "/PPN"
+    output_prefix += "/PPN"
+elif (args.type == 'i'):
+    trace_prefix += "/MPN"
+    output_prefix += "/MPN"
 
 def plot_hot_CDF(hot_pages):
     dram_addr = range(0, len(hot_pages))
@@ -36,9 +43,12 @@ def plot_hot_CDF(hot_pages):
     if args.type == 'p':
         plt.xlabel('Physical Address Sapce')
         plt.title(f'Hot PPN CDF({args.benchname}_{global_file_time}s)')
-    else:
+    elif args.type == 'v':
         plt.xlabel('Virtual Address Sapce')
         plt.title(f'Hot VPN CDF({args.benchname}_{global_file_time}s)')
+    elif args.type == 'm':
+        plt.xlabel('Mapped Virtual Address Sapce')
+        plt.title(f'Hot MPN CDF({args.benchname}_{global_file_time}s)')
     plt.ylabel('DRAM Mapping Addr')
 
     plt.savefig(output_dir + '/' + args.benchname + "_" + str(global_file_time) + ".png")
@@ -48,6 +58,15 @@ def plot_hot_CDF(hot_pages):
     plt.cla()
     plt.clf()
     plt.close()
+
+def init_global_env(hot_type):
+    global output_dir
+    global trace_dir
+
+    trace_dir = trace_prefix + "/" + hot_type
+    output_dir = output_prefix + "/" + hot_type
+    os.makedirs(output_dir, exist_ok=True)
+
 
 def init_local_env(filename):
     global global_file_time
@@ -74,8 +93,10 @@ def get_hot_pages(trace):
     return hot_pages
 
 if __name__ == "__main__":
-    for trace in os.listdir(trace_dir):
-        if (trace.endswith(trace_suffix)):
-            init_local_env(trace)
-            hot_pages = get_hot_pages(trace)
-            plot_hot_CDF(hot_pages)
+    for hot_type in hot_type_list:
+        init_global_env(hot_type)
+        for trace in os.listdir(trace_dir):
+            if (trace.endswith(hot_type)):
+                init_local_env(trace)
+                hot_pages = get_hot_pages(trace)
+                plot_hot_CDF(hot_pages)

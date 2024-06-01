@@ -1,9 +1,9 @@
 #benchname_list=(BFS cactuBSSN deepsjeng fotonik3d GUPS mcf PR XZ)
 #type_list=('v' 'p')
 #period_list=(1 5 10)
-benchname_list=(BC PR redis)
+benchname_list=(redis)
 type_list=('v')
-period_list=(1 5 15 30)
+period_list=(1 15 30)
 
 for bench in "${benchname_list[@]}"
 do
@@ -11,7 +11,7 @@ do
 		do
 				for period in "${period_list[@]}"
 				do
-						python3 ./plot_hot_cdf.py --type ${addr_type} --period ${period} ${bench}
+						python3 ./hot_delta_over_time.py --type ${addr_type} --period ${period} ${bench}
 				done
 		done
 done
