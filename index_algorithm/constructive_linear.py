@@ -36,21 +36,26 @@ import numpy as np
 import pandas as pd
 
 parser = argparse.ArgumentParser(description='Apply constructive_linear algorithm to benchmark trace')
+parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--period', default=1, type=int, help='The division period of trace')
+parser.add_argument('--threshold', default=16, type=int, help='The division threshold of hot addr space')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
 
 args = parser.parse_args()
 
-trace_dir='/home/yangxr/downloads/test_trace/hot_dist_5_15/' + args.benchname + '/'
-output_dir="/home/yangxr/downloads/test_trace/res/" + args.benchname + "/Learned_Index_v1/VPN"
+trace_dir_prefix='/home/yangxr/downloads/test_trace/res/roi/' + args.benchname + '/'
+output_dir_prefix="/home/yangxr/downloads/test_trace/res/roi/" + args.benchname + "/"
 
+# dram_per_core = 4 * 1024 * 1024 * 1024# 平均每个核能使用的DRAM容量 (Byte)
+# target_false_positive = 0.001
+# target_bf_size = 10 * 1024  # Byte
 base_stride = 1
-dram_per_core = 4 * 1024 * 1024 * 1024# 平均每个核能使用的DRAM容量 (Byte)
-target_false_positive = 0.001
-target_bf_size = 10 * 1024  # Byte
-global_threshold = 5
+global_threshold = args.threshold
+min_seg_len = 512 * 5
 global_start_index = 0
 global_file_time = 0
 global_hot_page_num = 0 # 当前文件内包含的不同页面数，用于计算当前热页的size: global_page_num * 4 * 1024 Byte
+top_hot_list = ['top_40', 'top_60', 'top_80']
 global_learned_segs = []
 global_learned_stat = []
 
@@ -58,33 +63,27 @@ global_learned_stat = []
 class LearnedSeg:
     def __init__(self):
         self.start_addr = 0
-        self.start_index = 0
+        self.start_idx = 0
         self.end_addr = 0
         self.end_idx = 0
         self.stride = 1.0
-        self.dram_fit = 0
-        self.dram_gap = 0
-        self.dram_conflict = 0
-        self.hot_page_cover = 0
         self.addr_space_cover = 0
+        self.addr_space_cover_ratio = 0.0
+        self.hot_cover = 0
+        self.hot_cover_ratio = 0.0
+        self.cold_cover = 0
+        self.cold_cover_ratio = 1.0
 
 class LearnedStatistics:
     def __init__(self):
         self.time = 0
-        self.total_addr_space_cover = 0
-        self.total_hot_page_cover = 0
-        self.total_hot_page_correct = 0
         self.seg_num = 0
-        self.min_hot_correct = 0
-        self.max_hot_correct = 0
-        self.avg_hot_correct = 0
-        self.avg_hot_cover = 0
-        self.dram_fit_ratio = 0
-        self.dram_gap_ratio = 0
-        self.dram_conflict_ratio = 0
-        self.err_page = 0
-        self.bf_false_positive = 0
-        self.bf_size = 0
+        self.addr_space_cover = 0
+        self.addr_space_cover_ratio = 0
+        self.hot_cover = 0
+        self.hot_cover_ratio = 0.0
+        self.cold_cover = 0
+        self.cold_cover_ratio = 1.0
 
 def init_local_env(filename):
     global global_start_index
@@ -95,14 +94,14 @@ def init_local_env(filename):
     global_hot_page_num = 0
 
     base_filename = os.path.basename(filename)
-    global_file_time = int(base_filename.split('.')[0].split('_')[1])
+    global_file_time = int(base_filename.split('.')[0].split('_')[-1])
     print(f"processing bench: {args.benchname} time: {global_file_time}")
 
-def get_trace_data(filename):
+def get_trace_data(filepath):
     global global_hot_page_num
     
     conv = lambda a: int(a, 16)
-    data = np.loadtxt(trace_dir + filename, converters={0: conv}).astype(int)
+    data = np.loadtxt(filepath, skiprows=1, usecols=(0,), converters={0: conv}).astype(int)
     global_hot_page_num = len(data)
     return data
 
@@ -127,7 +126,6 @@ def train_and_test(list, stride):
     seg.end_idx = global_start_index + len(list) - 1
     seg.end_addr = list[-1]
     seg.stride = stride
-    seg.addr_space_cover = (list[-1] - list[0] + 1)
 
     # 按照stride将当前region划分为不同的block
     # 判断每一个block内是否有且仅有一个热页
@@ -141,15 +139,16 @@ def train_and_test(list, stride):
             hot_page += 1
             idx+=1
 
+        if (hot_page == 1):
+            seg.hot_cover += 1
+        
         if (hot_page == 0):
-            seg.dram_gap += 1
-        elif (hot_page == 1):
-            seg.dram_fit += 1
-        else:
-            seg.dram_conflict += (hot_page - 1)
-        seg.hot_page_cover += hot_page
+            seg.cold_cover += 1
 
         block_addr += stride
+
+    seg.hot_cover_ratio = seg.hot_cover / global_hot_page_num
+    seg.cold_cover_ratio = seg.cold_cover / (seg.hot_cover + seg.cold_cover)
 
     return seg
 
@@ -161,8 +160,8 @@ def traverse_and_train(list, threshold):
 
     divided_list = divide_with_threshold(list, threshold)
     for sublist in divided_list:
-        # 不处理孤立的点
-        if (len(sublist) > 1):
+        # 不处理孤立的点 和 seg长度过小的情况
+        if (len(sublist) > min_seg_len):
             seg = train_and_test(sublist, base_stride)
             local_learned_segs.append(seg)
         
@@ -181,52 +180,54 @@ def write_seg_to_file():
         'start_index': [seg.start_idx for seg in global_learned_segs[-1]],
         'end_index': [seg.end_idx for seg in global_learned_segs[-1]],
         'stride': [seg.stride for seg in global_learned_segs[-1]],
-        'addr_space_cover': [seg.addr_space_cover for seg in global_learned_segs[-1]],
-        'hot_page_cover': [seg.hot_page_cover for seg in global_learned_segs[-1]],
-        'dram_fit': [seg.dram_fit for seg in global_learned_segs[-1]],
-        'dram_gap': [seg.dram_gap for seg in global_learned_segs[-1]],
-        'dram_conflict': [seg.dram_conflict for seg in global_learned_segs[-1]]
+        'hot_cover': [seg.hot_cover for seg in global_learned_segs[-1]],
+        'hot_cover_ratio': [seg.hot_cover_ratio for seg in global_learned_segs[-1]],
+        'cold_cover': [seg.cold_cover for seg in global_learned_segs[-1]],
+        'cold_cover_ratio': [seg.cold_cover_ratio for seg in global_learned_segs[-1]]
     })
 
-    df.to_csv(f'{output_dir}/{args.benchname}_{global_file_time}s.learned_index_v1.segs.csv')
+    df['hot_cover_ratio'] = df['hot_cover_ratio'].apply(lambda x: '{:.2f}%'.format(x * 100))
+    df['cold_cover_ratio'] = df['cold_cover_ratio'].apply(lambda x: '{:.2f}%'.format(x * 100))
 
-def bf_false_positive(err_page):
-    """
-    在给定item数量和bf array容量后, 计算bf的假阳率
-    公式: p = pow(1 - exp(-k / (m / n)), k)
-    https://hur.st/bloomfilter/?n=4000&p=&m=1Kb&k=3
+    df.to_csv(f'{output_dir}/{args.benchname}_{global_file_time}s.naive_linear_{global_threshold}.segs.csv')
 
-    参数:
-        err_page - 包含了dram_gap和dram_conflict的数量
-        size - bloom filter array容量大小 (Byte)
-    """
-    global global_hot_page_num
-    global target_bf_size
+# def bf_false_positive(err_page):
+#     """
+#     在给定item数量和bf array容量后, 计算bf的假阳率
+#     公式: p = pow(1 - exp(-k / (m / n)), k)
+#     https://hur.st/bloomfilter/?n=4000&p=&m=1Kb&k=3
 
-    if (err_page == 0):
-        return 0
+#     参数:
+#         err_page - 包含了dram_gap和dram_conflict的数量
+#         size - bloom filter array容量大小 (Byte)
+#     """
+#     global global_hot_page_num
+#     global target_bf_size
 
-    # 按照target DRAM容量对error page数量进行等比例放大
-    n = err_page * dram_per_core / (global_hot_page_num * 4 * 1024) # 放入bf中的元素个数
-    m = target_bf_size * 8
-    k = 3   # 默认哈希函数个数
-    p = math.pow(1 - math.exp(-k / (m / n)), k)
-    return p
+#     if (err_page == 0):
+#         return 0
 
-def bf_size(err_page):
-    # 参照bf_false_positive
-    # m = ceil((n * log(p)) / log(1 / pow(2, log(2))))
-    global global_hot_page_num
-    global target_false_positive
+#     # 按照target DRAM容量对error page数量进行等比例放大
+#     n = err_page * dram_per_core / (global_hot_page_num * 4 * 1024) # 放入bf中的元素个数
+#     m = target_bf_size * 8
+#     k = 3   # 默认哈希函数个数
+#     p = math.pow(1 - math.exp(-k / (m / n)), k)
+#     return p
 
-    if (err_page == 0):
-        return 0
+# def bf_size(err_page):
+#     # 参照bf_false_positive
+#     # m = ceil((n * log(p)) / log(1 / pow(2, log(2))))
+#     global global_hot_page_num
+#     global target_false_positive
 
-    p = target_false_positive
-    n = err_page * dram_per_core / (global_hot_page_num * 4 * 1024)
+#     if (err_page == 0):
+#         return 0
 
-    m = math.ceil((n * math.log(p)) / math.log(1 / pow(2, math.log(2)))) / 8 / 1024 # KB
-    return m
+#     p = target_false_positive
+#     n = err_page * dram_per_core / (global_hot_page_num * 4 * 1024)
+
+#     m = math.ceil((n * math.log(p)) / math.log(1 / pow(2, math.log(2)))) / 8 / 1024 # KB
+#     return m
 
 def caculate_statistics():
     global global_learned_segs
@@ -236,29 +237,15 @@ def caculate_statistics():
     stat = LearnedStatistics()
     stat.time = global_file_time
     stat.seg_num = len(global_learned_segs[-1])
-    stat.total_addr_space_cover = sum([seg.addr_space_cover for seg in global_learned_segs[-1]])
-    stat.total_hot_page_cover = sum([seg.hot_page_cover for seg in global_learned_segs[-1]])
-    stat.avg_hot_cover = round(stat.total_hot_page_cover / stat.seg_num, 2)
-    stat.total_hot_page_correct = sum([seg.dram_fit for seg in global_learned_segs[-1]]) 
-    stat.min_hot_correct = min([seg.dram_fit for seg in global_learned_segs[-1]])
-    stat.max_hot_correct = max([seg.dram_fit for seg in global_learned_segs[-1]])
-    stat.avg_hot_correct = round(stat.total_hot_page_correct / stat.seg_num)
-    stat.dram_fit_ratio = round(stat.total_hot_page_correct / stat.total_hot_page_cover)
-    stat.dram_gap_ratio = round(sum([seg.dram_gap for seg in global_learned_segs[-1]]) / stat.total_hot_page_cover, 2)
-    stat.dram_conflict_ratio = round(sum([seg.dram_conflict for seg in global_learned_segs[-1]]) / stat.total_hot_page_cover, 2)
-    #stat.err_page = sum(seg.dram_gap for seg in global_learned_segs[-1]) + sum(seg.dram_conflict for seg in global_learned_segs[-1])    # BUG: 目前只适用于stride=1的情况
-    stat.err_page = stat.total_addr_space_cover - stat.total_hot_page_correct   # BUG: 目前只适用于stride=1的情况
-    stat.bf_false_positive = round(bf_false_positive(stat.err_page), 2)
-    stat.bf_size = round(bf_size(stat.err_page), 2)
+    stat.hot_cover = sum([seg.hot_cover for seg in global_learned_segs[-1]])
+    stat.hot_cover_ratio = stat.hot_cover / global_hot_page_num
+    stat.cold_cover = sum([seg.cold_cover for seg in global_learned_segs[-1]])
+    if (stat.hot_cover + stat.cold_cover == 0):
+        stat.cold_cover_ratio = 1.0
+    else:
+        stat.cold_cover_ratio = stat.cold_cover / (stat.hot_cover + stat.cold_cover)
 
     global_learned_stat.append(stat)
-
-    # if (sum(seg.dram_gap for seg in global_learned_segs[-1]) + 
-    #     sum(seg.dram_conflict for seg in global_learned_segs[-1]) != (stat.total_addr_space_cover - stat.total_hot_page_correct)):
-    #         print(f"{sum(seg.dram_gap for seg in global_learned_segs[-1]) + sum(seg.dram_conflict for seg in global_learned_segs[-1])}")
-    #         print(f"{stat.total_addr_space_cover - stat.total_hot_page_correct}")
-    # assert (sum(seg.dram_gap for seg in global_learned_segs[-1]) + 
-    #     sum(seg.dram_conflict for seg in global_learned_segs[-1]) == (stat.total_addr_space_cover - stat.total_hot_page_correct))
 
 
 def write_statistic_to_file():
@@ -269,32 +256,33 @@ def write_statistic_to_file():
     df = pd.DataFrame({
         'time': [stat.time for stat in global_learned_stat],
         'seg_num': [stat.seg_num for stat in global_learned_stat],
-        'total_addr_space_cover_pn': [stat.total_addr_space_cover for stat in global_learned_stat],
-        'total_hot_page_cover_pn': [stat.total_hot_page_cover for stat in global_learned_stat],
-        'avg_hot_cover_pn': [stat.avg_hot_cover for stat in global_learned_stat],
-        'total_hot_page_correct_pn': [stat.total_hot_page_correct for stat in global_learned_stat],
-        'min_hot_correct_pn': [stat.min_hot_correct for stat in global_learned_stat],
-        'max_hot_correct_pn': [stat.max_hot_correct for stat in global_learned_stat],
-        'avg_hot_correct_pn': [stat.avg_hot_correct for stat in global_learned_stat],
-        'dram_fit_ratio': [stat.dram_fit_ratio for stat in global_learned_stat],    # cacheblock被正确放置在DRAM中的情况
-        'dram_gap_ratio': [stat.dram_gap_ratio for stat in global_learned_stat],    # DRAM中出现空cacheblock的情况
-        'dram_conflict_ratio': [stat.dram_conflict_ratio for stat in global_learned_stat],  # DRAM中热页冲突的情况
-        'err_page': [stat.err_page for stat in global_learned_stat],
-        f'bf_false_positive ({target_bf_size / 1024}KB)': [stat.bf_false_positive for stat in global_learned_stat],
-        f'bf_size ({target_false_positive}, KB)': [stat.bf_size for stat in global_learned_stat]
+        'hot_cover': [stat.hot_cover for stat in global_learned_stat],
+        'hot_cover_ratio': [stat.hot_cover_ratio for stat in global_learned_stat],
+        'cold_cover': [stat.cold_cover for stat in global_learned_stat],
+        'cold_cover_ratio': [stat.cold_cover_ratio for stat in global_learned_stat]
         })
 
-    df.to_csv(f'{output_dir}/{args.benchname}.learned_index_v1.statistics.csv')
+    df['hot_cover_ratio'] = df['hot_cover_ratio'].apply(lambda x: '{:.2f}%'.format(x * 100))
+    df['cold_cover_ratio'] = df['cold_cover_ratio'].apply(lambda x: '{:.2f}%'.format(x * 100))
 
+    df.to_csv(f'{output_dir}/{args.benchname}.naive_linear_{global_threshold}.statistics.csv')
 
 if __name__ == '__main__':
-    for filename in os.listdir(trace_dir):
-        if (filename.endswith('hot_v_5_15.out')):
-            print(f"{filename}")
+    period = args.period
+
+    for top_hot in top_hot_list:
+        trace_dir = trace_dir_prefix + '/' + str(period) + '/' + 'Zipfan_Hot_Dist/VPN' + '/' + top_hot + '/'
+
+        for filename in os.listdir(trace_dir):
+            #if (filename.endswith('hot_v_5_15.out')):
+            print(f"constructive_linear period: {period}, hot: {top_hot}, threshold: {global_threshold}, bench: {filename}")
             init_local_env(filename)
-            data = get_trace_data(filename)
-            traverse_and_train(data, threshold=global_threshold)
+            data = get_trace_data(trace_dir + filename)
+            traverse_and_train(data, global_threshold)
+
+            output_dir = output_dir_prefix + '/' + str(period) + '/Index/VPN/native_linear/' + top_hot + '/' + str(global_threshold) + '/'
             os.makedirs(output_dir, exist_ok=True)
+
             caculate_statistics()
             write_seg_to_file()
-    write_statistic_to_file()
+        write_statistic_to_file()
