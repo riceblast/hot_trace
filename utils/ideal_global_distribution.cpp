@@ -25,14 +25,15 @@
  * 由于使用了未来的数据, 因此该算法是"ideal"的
 */
 
-#define PAGE_SIZE 4096
+//#define PAGE_SIZE 4096
 
 int trace_num = 0; // 所有trace文件的数量
 int least_common_multiple = 0;  // 多个period的最小公倍数
+uint64_t cache_block_size = 4096;   // cache_block单位
 
 std::string benchname;
-std::string input_dir = "/data/home/yxr/downloads/test_trace/raw_data/roi/";
-std::string output_dir_prefix = "/data/home/yxr/downloads/test_trace/global_dist/roi/";
+std::string input_dir = "/home/yxr/downloads/test_trace/raw_data/roi/";
+std::string output_dir_prefix = "/home/yxr/downloads/test_trace/global_dist/";
 
 int max_thread_cnt = 12;
 std::mutex mtx;
@@ -46,25 +47,32 @@ std::vector<std::unordered_map<uint64_t, uint64_t>*> period_traces_phy; // 按�
 
 namespace fs = std::filesystem;
 
+uint64_t string2int(char* token)
+{
+    uint64_t result = 0;
+    try {
+        result = std::stoull(token, nullptr);
+    } catch(const std::invalid_argument& ia) {
+        std::cerr << "Invalid argument exception when calling stoull" << std::endl;
+        std::cerr << "Invalid argument: " << token << std::endl;
+        exit(1);
+    } catch (const std::out_of_range& oor) {
+        std::cerr << "The number is out of range" << std::endl;
+        std::cerr << "Out range number: " << token << std::endl;
+        exit(1);
+    }
+
+    return result;
+}
+
 void split_period(char* optarg) 
 {
     const char dlim[2] = ",";
     char* token = strtok(optarg, dlim);
 
     while (token != NULL) {
-        int p = 1;
-        try {
-            p = std::stoull(token, nullptr);
-            printf("period: %d\n", p);
-        } catch(const std::invalid_argument& ia) {
-            std::cerr << "Invalid argument exception when calling stoull" << std::endl;
-            std::cerr << "Invalid argument: " << token << std::endl;
-            exit(1);
-        } catch (const std::out_of_range& oor) {
-            std::cerr << "The number is out of range" << std::endl;
-            std::cerr << "Out range number: " << token << std::endl;
-            exit(1);
-        }
+        int p = (int)string2int(token);
+        printf("periods: %d\n", p);
 
         periods.push_back(p);
         token = strtok(NULL, dlim);
@@ -81,6 +89,7 @@ void parse_options(int argc, char* argv[])
         int option_index = 0;
         static struct option long_options[] = {
             {"periods", required_argument, 0, 0},
+            {"cacheblock", required_argument, 0, 0},
             {0, 0, 0, 0}
         };
 
@@ -91,10 +100,33 @@ void parse_options(int argc, char* argv[])
             break;
 
         if (c == 0) {
-            // time period
+            
             if (option_index == 0) {
+                // time period
                 split_period(optarg);
                 continue;
+
+            } else if (option_index == 1){
+                // cacheblock
+                cache_block_size = string2int(optarg);
+                printf("cache block size: %luB, %luKB\n", cache_block_size, cache_block_size / 1024);
+
+                if (cache_block_size == 4096) {
+                    output_dir_prefix += "roi/";
+                    continue;
+                } else if (cache_block_size == 256) {
+                    output_dir_prefix += "roi_256/";
+                    continue;
+                } else if (cache_block_size == 64) {
+                    output_dir_prefix += "roi_64/";
+                    continue;
+                } else if (cache_block_size == 2097152) {
+                    output_dir_prefix += "roi_2M/";
+                    continue;
+                } else {
+                    printf("invalid cache block size: %lu\n", cache_block_size);
+                    exit(1);
+                }
             }
 
             printf("invalid option_index: %d\n", option_index);
@@ -126,7 +158,7 @@ uint64_t address_to_pn(const std::string& address)
         std::cerr << "The number is out of range" << std::endl;
         std::cerr << "Out range number: " << address << std::endl;
     }
-    return addr / PAGE_SIZE;
+    return addr / cache_block_size;
 }
 
 void cnt_trace_num(void) 
