@@ -53,6 +53,8 @@ res/*
 !utils/plot_all_hot_skewness.sh
 !utils/get_zipfan_hot_dist.py
 !utils/plot_all_zipfan_hot_dist.sh
+!utils/get_skewed_huge_page.py
+!utils/plot_all_skew_dist.sh
 tmp/
 test_trace/
 test_trace
