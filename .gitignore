@@ -51,6 +51,8 @@ res/*
 !utils/plot_all_hot_set_diff.sh
 !utils/plot_hot_skew.py
 !utils/plot_all_hot_skewness.sh
+!utils/get_zipfan_hot_dist.py
+!utils/plot_all_zipfan_hot_dist.sh
 tmp/
 test_trace/
 test_trace
