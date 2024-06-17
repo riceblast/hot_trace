@@ -18,8 +18,8 @@ args = parser.parse_args()
 benchname = args.benchname
 hot_type_list = ['top_40', 'top_60', 'top_80']
 #trace_prefix = "/home/yangxr/tmp"
-trace_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Zipfan_Hot_Dist/"
-output_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Top_Hot_Survival/"
+trace_prefix = "/home/yangxr/downloads/test_trace/res/compute/" + args.benchname + "/" + str(args.period) + "/Zipfan_Hot_Dist/"
+output_prefix = "/home/yangxr/downloads/test_trace/res/compute/" + args.benchname + "/" + str(args.period) + "/Top_Hot_Survival/"
 trace_dir = ''
 output_dir = ''
 
@@ -58,7 +58,7 @@ def init_file_time_list():
     global global_file_time_list
     for trace in os.listdir(trace_prefix + "/top_40"):  #TODO 硬编码
             base_filename = os.path.basename(trace)
-            file_time = int(base_filename.split('.')[0].split('_')[1])
+            file_time = int(base_filename.split('.')[0].split('_')[-1])
             
             global_file_time_list.append(file_time)
     
@@ -69,7 +69,7 @@ def get_hot_trace(hot_type):
 
     for trace in os.listdir(trace_dir):
         base_filename = os.path.basename(trace)
-        global_file_time = int(base_filename.split('.')[0].split('_')[1])
+        global_file_time = int(base_filename.split('.')[0].split('_')[-1])
         print(f"reading hot_dist trace: {args.benchname} hot_type: {hot_type} time: {global_file_time}")
 
         addr_list = _get_top_hot_data(trace)
