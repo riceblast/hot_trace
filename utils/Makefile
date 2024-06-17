@@ -2,7 +2,7 @@ CC = gcc
 CXX = g++
 CFLAGS = -Wall -O2 -g
 #CXXFLAGS = -Wall -O2 -g
-CXXFLAGS = -Wall -g
+CXXFLAGS = -Wall -g -lpthread
 
 #SRCDIR = src
 #OBJDIR = obj

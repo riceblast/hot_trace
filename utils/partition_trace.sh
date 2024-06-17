@@ -22,8 +22,9 @@ if [ ! -d $out_dir ]; then
 fi
 
 # count line number
-line_num=$(cat $input | wc -l)
-echo "total line num: $line_num"
+#line_num=$(cat $input | wc -l)
+#line_num=$(wc -l $input)
+#echo "total line num: $line_num"
 
 # split big trace file to some trace file(coresponding to 1s)
 # output: bench_n.out
