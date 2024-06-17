@@ -47,5 +47,10 @@ res/*
 !utils/ideal_global_distribution.cpp
 !utils/hot_delta_over_time.py
 !utils/plot_all_hot_delta.sh
+!utils/plot_hot_set_diff.py
+!utils/plot_all_hot_set_diff.sh
+!utils/plot_hot_skew.py
+!utils/plot_all_hot_skewness.py
 tmp/
 test_trace/
+test_trace
