@@ -50,7 +50,7 @@ res/*
 !utils/plot_hot_set_diff.py
 !utils/plot_all_hot_set_diff.sh
 !utils/plot_hot_skew.py
-!utils/plot_all_hot_skewness.py
+!utils/plot_all_hot_skewness.sh
 tmp/
 test_trace/
 test_trace
