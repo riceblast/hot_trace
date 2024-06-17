@@ -85,6 +85,13 @@ class LearnedStatistics:
         self.cold_cover = 0
         self.cold_cover_ratio = 1.0
 
+def init_global_variables():
+    global global_learned_segs
+    global global_learned_stat
+
+    global_learned_segs = []
+    global_learned_stat = []
+
 def init_local_env(filename):
     global global_start_index
     global global_file_time
@@ -191,44 +198,6 @@ def write_seg_to_file():
 
     df.to_csv(f'{output_dir}/{args.benchname}_{global_file_time}s.naive_linear_{global_threshold}.segs.csv')
 
-# def bf_false_positive(err_page):
-#     """
-#     在给定item数量和bf array容量后, 计算bf的假阳率
-#     公式: p = pow(1 - exp(-k / (m / n)), k)
-#     https://hur.st/bloomfilter/?n=4000&p=&m=1Kb&k=3
-
-#     参数:
-#         err_page - 包含了dram_gap和dram_conflict的数量
-#         size - bloom filter array容量大小 (Byte)
-#     """
-#     global global_hot_page_num
-#     global target_bf_size
-
-#     if (err_page == 0):
-#         return 0
-
-#     # 按照target DRAM容量对error page数量进行等比例放大
-#     n = err_page * dram_per_core / (global_hot_page_num * 4 * 1024) # 放入bf中的元素个数
-#     m = target_bf_size * 8
-#     k = 3   # 默认哈希函数个数
-#     p = math.pow(1 - math.exp(-k / (m / n)), k)
-#     return p
-
-# def bf_size(err_page):
-#     # 参照bf_false_positive
-#     # m = ceil((n * log(p)) / log(1 / pow(2, log(2))))
-#     global global_hot_page_num
-#     global target_false_positive
-
-#     if (err_page == 0):
-#         return 0
-
-#     p = target_false_positive
-#     n = err_page * dram_per_core / (global_hot_page_num * 4 * 1024)
-
-#     m = math.ceil((n * math.log(p)) / math.log(1 / pow(2, math.log(2)))) / 8 / 1024 # KB
-#     return m
-
 def caculate_statistics():
     global global_learned_segs
     global global_learned_stat
@@ -271,6 +240,8 @@ if __name__ == '__main__':
     period = args.period
 
     for top_hot in top_hot_list:
+        init_global_variables()
+
         trace_dir = trace_dir_prefix + '/' + str(period) + '/' + 'Zipfan_Hot_Dist/VPN' + '/' + top_hot + '/'
 
         for filename in os.listdir(trace_dir):
