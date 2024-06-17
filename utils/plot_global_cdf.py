@@ -16,19 +16,28 @@ import numpy as np
 # 处理命令行参数
 parser = argparse.ArgumentParser(description='Caculate the CDF plot of hot pages')
 parser.add_argument('--type', choices=['v', 'p'], default='v', help='Trace type: virtual addr(v)/physical addr(p)')
+parser.add_argument('--cacheblock', choices=['256', '4096', '2097152' ,'4K', '2M'], default='4096', help='The size of DRAM cacheblock')
 parser.add_argument('--period', default=1, type=int, help='The division period of trace')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
 
 args = parser.parse_args()
 
+roi_dir = ""
+if args.cacheblock == '256':
+    roi_dir = "roi_256"
+if args.cacheblock == '4096' or args.cacheblock == '4K':
+    roi_dir = "roi_4K"
+if args.cacheblock == '2097152' or args.cacheblock == '2M':
+    roi_dir = "roi_2M"
+
 global_file_time = 0 # 现在正在处理的时间数据
-trace_dir = "/home/yangxr/downloads/test_trace/global_dist/roi/1_thr/" + args.benchname + "/" + str(args.period)
+trace_dir = f"/home/yangxr/downloads/test_trace/global_dist/{roi_dir}/" + args.benchname + "/" + str(args.period)
 
 if (args.type == 'v'):
-    output_dir="/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Access_Freq/VPN"
+    output_dir=f"/home/yangxr/downloads/test_trace/res/{roi_dir}/" + args.benchname + "/" + str(args.period) + "/Access_Freq/VPN"
     trace_suffix = 'vout'
 elif (args.type == 'p'):
-    output_dir="/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Access_Freq/PPN"
+    output_dir=f"/home/yangxr/downloads/test_trace/res/{roi_dir}/" + args.benchname + "/" + str(args.period) + "/Access_Freq/PPN"
     trace_suffix = 'pout'
 
 def plot_access_freq(access_freq):
@@ -89,7 +98,7 @@ def init_local_env(filename):
     os.makedirs(output_dir, exist_ok=True)
 
     base_filename = os.path.basename(filename)
-    global_file_time = int(base_filename.split('.')[0].split('_')[1])
+    global_file_time = int(base_filename.split('.')[0].split('_')[-1])
     print(f"processing bench page difference: {args.benchname} time: {global_file_time}")
 
 def get_access_freq(trace):

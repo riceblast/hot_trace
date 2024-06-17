@@ -25,15 +25,24 @@ import numpy as np
 parser = argparse.ArgumentParser(description='Caculate the difference between adjacent page numbers')
 parser.add_argument('--type', choices=['v', 'p', 'm'], default='v', help='Trace type: virtual addr(v)/physical addr(p)/mapped virtual addr')
 parser.add_argument('--period', default=1, type=int, help='The division period of trace')
+parser.add_argument('--cacheblock', choices=['256', '4096', '2097152' ,'4K', '2M'], default='4096', help='The size of DRAM cacheblock')
 parser.add_argument('benchname', help='Target benchmark trace used to get page difference')
 # parser.add_argument('num', help='Index of benhmark trace')
 
 args = parser.parse_args()
 
+roi_dir = ""
+if args.cacheblock == '256':
+    roi_dir = "roi_256"
+if args.cacheblock == '4096' or args.cacheblock == '4K':
+    roi_dir = "roi_4K"
+if args.cacheblock == '2097152' or args.cacheblock == '2M':
+    roi_dir = "roi_2M"
+
 global_file_time = 0 # 现在正在处理的时间数据
 hot_type_list = ['top_40', 'top_60', 'top_80']
-trace_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/Zipfan_Hot_Dist"
-output_prefix = "/home/yangxr/downloads/test_trace/res/roi/1_thr/" + args.benchname + "/" + str(args.period) + "/PN_DIFF"
+trace_prefix = f"/home/yangxr/downloads/test_trace/res/{roi_dir}/" + args.benchname + "/" + str(args.period) + "/Zipfan_Hot_Dist"
+output_prefix = f"/home/yangxr/downloads/test_trace/res/{roi_dir}/" + args.benchname + "/" + str(args.period) + "/PN_DIFF"
 trace_dir = ''
 output_dir = ''
 
@@ -98,7 +107,7 @@ def init_local_env(filename, hot_type):
     os.makedirs(output_dir, exist_ok=True)
 
     base_filename = os.path.basename(filename)
-    global_file_time = int(base_filename.split('.')[0].split('_')[1])
+    global_file_time = int(base_filename.split('.')[0].split('_')[-1])
     print(f"processing bench page difference: {args.benchname} hot_type: {hot_type} time: {global_file_time}")
 
 if __name__ == "__main__":
