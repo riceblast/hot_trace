@@ -16,8 +16,8 @@ args = parser.parse_args()
 
 benchname = args.benchname
 
-trace_dir_prefix = "/home/yangxr/downloads/test_trace/res/"
-output_dir = "/home/yangxr/downloads/test_trace/res/roi_256/" + args.benchname + "/" + str(args.period) + "/Page_Size/Hot_Set_Diff/"
+trace_dir_prefix = "/home/yxr/downloads/test_trace/res/"
+output_dir = "/home/yxr/downloads/test_trace/res/roi_256/" + args.benchname + "/" + str(args.period) + "/Page_Size/Hot_Set_Diff/"
 
 hot_type_list = ['top_40', 'top_60', 'top_80']
 global_file_time_list = []
@@ -33,7 +33,7 @@ def init_global_env():
 
     os.makedirs(output_dir, exist_ok=True)
 
-    trace_dir = '/home/yangxr/downloads/test_trace/global_dist/roi_2M/' + args.benchname + "/" + str(args.period)
+    trace_dir = '/home/yxr/downloads/test_trace/global_dist/roi_2M/' + args.benchname + "/" + str(args.period)
     for filename in os.listdir(trace_dir):
         if(filename.endswith('global_dist.vout')):
             base_filename = os.path.basename(filename)
@@ -95,7 +95,7 @@ def plot_hot_set_diff(hot_type):
 
     plt.xlabel('Time(s)')
     plt.ylabel('Hot Set Size(MB)')
-    plt.title(f'{args.benchname} Hot Set Diff(256B/2MB 120s)')
+    plt.title(f'{args.benchname} Hot Set Diff(256B/2MB period-{args.period}s)')
 
     plt.legend()
 
