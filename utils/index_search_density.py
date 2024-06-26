@@ -89,14 +89,14 @@ def test_conflict(addrs, density, group_num):
         assert (addr >= range_start and addr < range_start + group_size)
         # direct map
         dram_idx = (addr - range_start) % density[group_idx]
-        if (cache_blocks_direct[cache_offset + dram_idx] > 0):
-            direct_conflicts += 1
+        # if (cache_blocks_direct[cache_offset + dram_idx] > 0):
+        #     direct_conflicts += 1
         cache_blocks_direct[cache_offset + dram_idx] += 1
 
         # linear map
         dram_idx = math.floor((addr - range_start) * (density[group_idx] / group_size))
-        if (cache_blocks_linear[cache_offset + dram_idx] > 0):
-            linear_conflicts += 1
+        # if (cache_blocks_linear[cache_offset + dram_idx] > 0):
+        #     linear_conflicts += 1
         cache_blocks_linear[cache_offset + dram_idx] += 1
 
     direct_unconflicts = 0
@@ -104,9 +104,14 @@ def test_conflict(addrs, density, group_num):
     for entry in cache_blocks_direct:
         if (entry == 1):
             direct_unconflicts += 1
+        if (entry > 1):
+            direct_conflicts += 1
+
     for entry in cache_blocks_linear:
         if (entry == 1):
             linear_unconflicts += 1
+        if (entry > 1):
+            linear_conflicts += 1
     
     return [direct_unconflicts, direct_conflicts], [linear_unconflicts, linear_conflicts]
 
