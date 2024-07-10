@@ -34,16 +34,14 @@ uint64_t TraceReader::Str2Addr(std::string str_addr)
         std::cerr << "Out range number: " << str_addr << std::endl;
         assert(0);
     }
-    return addr / 64;
+    return addr;
 }
 
-uint64_t TraceReader::NextAddr(char& rw_type, bool& flag)
+uint64_t TraceReader::NextAddr(char& rw_type)
 {
     std::string line;
 
     if (trace_stream_.eof() && cur_file_ < (max_seconds_ - 1)) {
-        flag = true;
-
         std::string trace_file_name = bench_name_ + "_" +  std::to_string(++cur_file_) + ".out";
         if(!fs::exists(kRawDataPathPrefix + bench_name_ + "/" + trace_file_name)) {
             std::cerr << "Bench: " << bench_name_ << " does not exists\n";
@@ -52,7 +50,7 @@ uint64_t TraceReader::NextAddr(char& rw_type, bool& flag)
 
         trace_stream_.close();
         trace_stream_.open(kRawDataPathPrefix + "/" + bench_name_ + "/" + trace_file_name);
-        //std::cout << "Open Trace: " << trace_file_name << std::endl;
+        std::cout << "Open Trace: " << trace_file_name << std::endl;
     }
 
     getline(trace_stream_, line);
@@ -62,9 +60,9 @@ uint64_t TraceReader::NextAddr(char& rw_type, bool& flag)
     std::string virtual_address, physical_address;
     if (iss >> op_type >> virtual_address >> physical_address) {
         rw_type = op_type;
-        return Str2Addr(physical_address);
+        return Str2Addr(virtual_address);
     } else {
-        return 0;
+        return -1;
     }
 }
 

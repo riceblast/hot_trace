@@ -14,7 +14,7 @@ class TraceReader {
         uint64_t max_seconds_;  // 运行到max_seconds_停止
         
         bool Eof(void);
-        uint64_t NextAddr(char& rw_type, bool& flag);
+        uint64_t NextAddr(char& rw_type);
         uint64_t GetCurFile(void);
 
         TraceReader(std::string bench_name, uint64_t max_seconds);

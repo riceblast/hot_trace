@@ -8,8 +8,11 @@
 #include <iostream>
 #include <string>
 
+bool direct_map = false;
+uint64_t dram_ratio = 0;    // e.g. 16 -> 1:16
 uint64_t dram_size = 0;
-uint64_t cache_block_size = 0;
+uint64_t cxl_size =0;
+uint64_t cache_block_size = kCacheBlockSize;
 uint64_t max_seconds = 0;
 std::string bench_name = "";
 
@@ -21,8 +24,10 @@ void parse_args(int argc, char* argv[])
         int option_index = 0;
         static struct option long_options[] = {
             {"cache-block", required_argument, 0, 0},
-            {"dram-size", required_argument, 0, 0},
+            {"dram-ratio", required_argument, 0, 0},
+            {"cxl-size", required_argument, 0, 0},
             {"max-seconds", required_argument, 0, 0},
+            {"direct-map", required_argument, 0, 0},
             {0, 0, 0, 0}
         };
 
@@ -40,12 +45,19 @@ void parse_args(int argc, char* argv[])
                 continue;
 
             } else if (option_index == 1){
-                // dram size
-                dram_size = std::stoull(optarg, nullptr);
+                // dram ratio
+                dram_ratio = std::stoull(optarg, nullptr);
                 continue;
-            }else if (option_index == 2) {
+            } else if (option_index == 2){
+                // cxl size
+                cxl_size = std::stoull(optarg, nullptr);
+            }else if (option_index == 3) {
                 // max seconds
                 max_seconds = std::stoull(optarg, nullptr);
+                continue;
+            } else if (option_index == 4) {
+                // direct map or not
+                direct_map = true;
                 continue;
             }
 
@@ -59,7 +71,8 @@ void parse_args(int argc, char* argv[])
         std::cerr << "mem_sim option option <benchname> can't be omitted\n";
         std::cout << "./mem_simulator <--cache-block> <--dram-size> <--max-seconds> bench-name" << std::endl;
         std::cout << "\tcache-block: the basic cache block size(Byte)" << std::endl;
-        std::cout << "\tdram-size: the demand dram size(MB)" << std::endl;
+        std::cout << "\tdram-ratio: ratio of cxl:dram, e.g. 16" << std::endl;
+        std::cout << "\tcxl-size: the size of cxl mem(MB)" << std::endl;
         std::cout << "\tmax-seconds: the time to simulate" << std::endl;
         std::cout << "\tbench-name: the name of benchmark" << std::endl;
         assert(0);
@@ -72,7 +85,7 @@ int main(int argc, char* argv[])
 {
     parse_args(argc, argv);
 
-    uint64_t cxl_size = 128 * 1024; // 128GB
-    MemSimulator mem_simulator(cache_block_size, dram_size, cxl_size, max_seconds, bench_name);
+    dram_size = cxl_size / dram_ratio;
+    MemSimulator mem_simulator(direct_map, cache_block_size, dram_ratio, dram_size, cxl_size, max_seconds, bench_name);
     mem_simulator.run();
 }
