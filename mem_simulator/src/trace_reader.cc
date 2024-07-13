@@ -59,6 +59,7 @@ uint64_t TraceReader::NextAddr(char& rw_type)
     char op_type;
     std::string virtual_address, physical_address;
     if (iss >> op_type >> virtual_address >> physical_address) {
+        assert(op_type == 'R' || op_type == 'W');
         rw_type = op_type;
         return Str2Addr(virtual_address);
     } else {
@@ -104,9 +105,10 @@ TraceReader::TraceReader(std::string bench_name, uint64_t max_seconds)
         std::cerr << "Bench: " << full_raw_data_path + "/" + trace_name << " does not exists\n";
         assert(0);
     }
-    trace_stream_.open(full_raw_data_path + "/" + trace_name);
-    std::cout << "Open Trace: " << trace_name << std::endl;
-
     uint64_t file_num = CountTraces(full_raw_data_path);
     max_seconds_ = file_num < max_seconds? file_num : max_seconds;
+    std::cout << "\tmax seconds: " << max_seconds_ << std::endl;
+
+    trace_stream_.open(full_raw_data_path + "/" + trace_name);
+    std::cout << "Open Trace: " << trace_name << std::endl;
 }

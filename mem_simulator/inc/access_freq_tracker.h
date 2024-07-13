@@ -12,6 +12,8 @@ class AccessFreqTracker {
         uint64_t cache_block_size_;
         uint64_t dram_ratio_;
         uint64_t cxl_size_;
+        uint64_t bucket_size_;
+        uint64_t track_period_;
         uint64_t start_pn_ = 0;
         uint64_t end_pn_ = 0;
         uint64_t hot_thres_ = 0; // hot thres for access hist
@@ -28,9 +30,10 @@ class AccessFreqTracker {
         void UpdateAccessFreq(uint64_t addr);
         void GetNewHugePageMetadata(void);  // Get (1)Hot Uniform,(2)Hot Bloat,(3)Cold info; Get remap info
 
-        AccessFreqTracker(uint64_t cache_block_size, uint64_t dram_ratio, uint64_t cxl_size)
-            :cache_block_size_(cache_block_size), dram_ratio_(dram_ratio), cxl_size_(cxl_size),
-            cm_sketch_(kNrHugePagePerSeg * (kHugePageSize / kCacheBlockSize), kSketchCountBit),
+        AccessFreqTracker(uint64_t cache_block_size, uint64_t dram_ratio, uint64_t cxl_size, uint64_t bucket_size, uint64_t track_period)
+            :cache_block_size_(cache_block_size), dram_ratio_(dram_ratio), cxl_size_(cxl_size), 
+            bucket_size_(bucket_size),track_period_(track_period),
+            cm_sketch_(bucket_size, kSketchCountBit),
             access_hist_(1 << cm_sketch_.count_bit_, 0),
             huge_metadata_(kNrHugePagePerSeg),
             huge_bloat_degree_(kNrHugePagePerSeg),

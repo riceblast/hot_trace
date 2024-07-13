@@ -17,6 +17,7 @@ void CMSketch::Insert(uint64_t key)
 {
     uint64_t max_value = (1 << count_bit_) - 1;
     uint64_t v0, v1, v2;
+    assert(max_value <= 32);
 
     v0 = buckets_[0][XXHash(key) % width_];
     buckets_[0][XXHash(key) % width_] = std::min(v0 + 1, max_value);
