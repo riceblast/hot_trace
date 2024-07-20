@@ -56,6 +56,7 @@ res/*
 !utils/get_skewed_huge_page.py
 !utils/plot_all_skew_dist.sh
 !utils/index*py
+!utils/get_cxl_range.py
 tmp/
 test_trace/
 test_trace
