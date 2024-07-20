@@ -12,7 +12,7 @@ bool direct_map = false;
 uint64_t dram_ratio = 0;    // e.g. 16 -> 1:16
 uint64_t dram_size = 0;
 uint64_t cxl_size =0;
-uint64_t cache_block_size = kCacheBlockSize;
+uint64_t cache_block_size = 256;
 uint64_t max_seconds = 0;
 uint64_t bucket_size = 524288;
 uint64_t track_period = 30; // milliseconds(ms)
@@ -80,10 +80,13 @@ void parse_args(int argc, char* argv[])
     // 处理必选参数
     if (optind == argc) {
         std::cerr << "mem_sim option option <benchname> can't be omitted\n";
-        std::cout << "./mem_simulator <--cache-block> <--dram-size> <--max-seconds> bench-name" << std::endl;
+        std::cout << "./mem_simulator <--cache-block> <--dram-raio> <--max-seconds> <--direct-map> <--bucket-size> <--track-period> bench-name" << std::endl;
         std::cout << "\tcache-block: the basic cache block size(Byte)" << std::endl;
         std::cout << "\tdram-ratio: ratio of cxl:dram, e.g. 16" << std::endl;
         std::cout << "\tcxl-size: the size of cxl mem(MB)" << std::endl;
+        std::cout << "\tdirect-map: set this option when using direct map" << std::endl;
+        std::cout << "\tbucket-size: the number of entry in sketch bucket" << std::endl;
+        std::cout << "\ttrack-period: the monitor period of access tracking" << std::endl;
         std::cout << "\tbench-name: the name of benchmark" << std::endl;
         assert(0);
     } else {
@@ -95,8 +98,15 @@ int main(int argc, char* argv[])
 {
     parse_args(argc, argv);
 
+    if ((cxl_size / (kHugePageSize / kMB)) % kNrHugePagePerSeg != 0) {
+        printf("Arg Error: cxl_size: %lu, nr_huge_page_per_seg: %lu, this two values should be divisible by each other\n", 
+            cxl_size, kNrHugePagePerSeg);
+        return 1;
+    }
+
     dram_size = cxl_size / dram_ratio;
     MemSimulator mem_simulator(direct_map, cache_block_size, dram_ratio, dram_size, cxl_size, 
         max_seconds, bucket_size, track_period, bench_name);
-    mem_simulator.run();
+    printf("\tdirect-map: %d\n", direct_map);
+    mem_simulator.Run();
 }

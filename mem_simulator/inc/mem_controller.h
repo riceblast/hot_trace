@@ -26,6 +26,13 @@ struct CacheBlock {
     uint64_t tag;
 };
 
+struct LearnedStat {
+    uint64_t uniform_cover = 0;
+    uint64_t bloat_cover = 0;
+    uint64_t cold_cover = 0;
+    uint64_t bloat_hit_cur = 0;
+};
+
 class MemController {
     public:
         bool direct_map_ = false;
@@ -42,8 +49,11 @@ class MemController {
         std::vector<int> dram_block_usage_;  // dram-pn index, huge-page granilarity, how many huge page map to this block
         std::vector<std::vector<uint64_t>> dram_block_rmap_;  // dram-pn index, reverse map table for dram
         std::vector<CacheBlock> dram_blocks;
+        LearnedStat learned_stat_;
 
-        AccessStat do_access(char rw_type, uint64_t byte_addr);
+
+        void ClearLearnedStat(void);
+        AccessStat do_access(char rw_type, uint64_t cache_addr);
         void UpdateMetadata(uint64_t start_pn, std::vector<HugePageStat> huge_metadata,
             std::vector<std::vector<uint64_t>> huge_remap_group, std::vector<int> huge_remap_info,
             std::vector<int> huge_block_degree);
@@ -59,10 +69,12 @@ class MemController {
         ~MemController(void){};
 
     private:
-        void _UpdateCacheBlockTag(char rw_type, uint64_t byte_addr);
-        bool DirectAccess(char rw_type, uint64_t byte_addr);
-        bool LearnedAccess(char rw_type, uint64_t byte_addr);
-        void ReplaceCacheBlockTag(uint64_t hp_pn);
+        uint64_t _GetDramAddr(uint64_t cache_addr);
+        void _UpdateCacheBlockTag(char rw_type, uint64_t cache_addr);
+        void _UpdateCacheBlockTag(char rw_type, uint64_t cache_addr, uint64_t dram_addr);
+        bool DirectAccess(char rw_type, uint64_t cache_addr);
+        bool LearnedAccess(char rw_type, uint64_t cache_addr);
+        void ReplaceCacheBlockTag(uint64_t dram_start_cache_addr, uint64_t hp_pn);
         void ClearCacheBlockTag(uint64_t hp_pn);
         uint64_t GetFreeBlock(uint64_t set_idx);
         uint64_t GetBloatBlock(uint64_t set_idx);

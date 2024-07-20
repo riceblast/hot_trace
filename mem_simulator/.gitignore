@@ -2,3 +2,6 @@ mem_simulator
 bin/*
 build/*
 log/*
+script/*
+run.sh
+*.json

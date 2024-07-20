@@ -11,6 +11,7 @@ class CMSketch {
         uint64_t width_; // bucket num
         int count_bit_; // bits used to count
         std::vector<std::vector<int>> buckets_;
+        std::vector<bool> is_occured_;
 
         uint64_t Query(uint64_t key);
         void Insert(uint64_t key);
@@ -22,6 +23,10 @@ class CMSketch {
                     totalElements += row.size();
                 }
                 assert(totalElements == (depth_ * width));
+
+                is_occured_.resize(65536UL * 8192UL);
+                for (auto it = is_occured_.begin(); it < is_occured_.end(); it++)
+                    (*it) = false;
             };
         ~CMSketch(){};
 

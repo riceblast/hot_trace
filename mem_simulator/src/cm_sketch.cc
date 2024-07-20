@@ -10,6 +10,9 @@ uint64_t CMSketch::Query(uint64_t key)
     v1 = buckets_[1][BobHash(key) % width_];
     v2 = buckets_[2][CityHash(key) % width_];
 
+    if (!is_occured_[key])
+        return 0;
+
     return std::min(v0, std::min(v1, v2));
 }
 
@@ -27,6 +30,8 @@ void CMSketch::Insert(uint64_t key)
 
     v2 = buckets_[2][CityHash(key) % width_];
     buckets_[2][CityHash(key) % width_] = std::min(v2 + 1, max_value);
+
+    is_occured_[key] = true;
 }
 
 void CMSketch::Clear(void)
@@ -36,4 +41,7 @@ void CMSketch::Clear(void)
             entry = 0;
         }
     }
+
+    for (auto it = is_occured_.begin(); it < is_occured_.end(); it++)
+        (*it) = false;
 }
